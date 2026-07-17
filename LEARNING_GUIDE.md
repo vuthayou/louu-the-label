@@ -85,6 +85,26 @@ Rules live in `firestore.rules` / `storage.rules`, get compiled and deployed by 
 
 **Firestore has a "test mode" option** when you first create it — open read/write, no auth required, expires after ~30 days. Useful for early development before real rules exist, but must be replaced before going live (which we did in Phase 4).
 
+### Local Emulator Suite (dev/prod data separation)
+Once the site was live, a new problem appeared: `localhost` and the live site both pointed at the *same* real Firestore/Storage/Auth. Every test upload or delete during local development was actually happening to real, live customer-facing data — there was no separation between "testing" and "real."
+
+The **Firebase Local Emulator Suite** solves this: it runs local, throwaway copies of Firestore/Storage/Auth entirely on your machine, with zero connection to the real cloud project. This is the standard professional pattern — in a real team, every engineer runs the app against local emulators while coding, so nothing they do locally can ever touch production data.
+
+How it's wired up:
+- `firebase.json` has an `"emulators"` block declaring which services to emulate and on what ports.
+- `src/firebase.js` uses Vite's built-in `import.meta.env.DEV` flag — `true` only when running `npm run dev`, `false` in a production build — to connect to the emulators *only* during local development:
+  ```js
+  if (import.meta.env.DEV) {
+    connectFirestoreEmulator(db, '127.0.0.1', 8080)
+    connectStorageEmulator(storage, '127.0.0.1', 9199)
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099')
+  }
+  ```
+- Day-to-day usage needs **two terminals running at once**: `npm run emulators` (starts the local Firestore/Storage/Auth + a dashboard at `localhost:4000`) and `npm run dev` (the usual dev server, now automatically talking to those emulators instead of real Firebase).
+- The emulator's Auth/Firestore/Storage data starts **completely empty and separate** from real Firebase — your real admin login doesn't exist there. A test admin account has to be created once via the Emulator UI (`localhost:4000` → Authentication → Add user).
+- `--export-on-exit`/`--import` flags (baked into the `npm run emulators` script) save emulator data to a local `emulator-data/` folder on shutdown (`Ctrl+C`) and reload it next time, so that test account and any test products persist across sessions instead of resetting every time. This folder is git-ignored — it's local-only, regeneratable data, same reasoning as `node_modules`.
+- The emulators enforce the *same* `firestore.rules`/`storage.rules` as production, so testing locally also validates your real security rules — just against fake data.
+
 **A subtlety worth remembering:** the `apiKey` and other values in `firebaseConfig` (inside `firebase.js`) look like secrets but aren't — they're meant to be public in client-side code. Actual security comes entirely from the rules above, not from hiding this config.
 
 ---
@@ -142,7 +162,13 @@ louu-the-label/                  (repo root)
 - Discussed defenses against a stolen admin login: MFA (not yet implemented — bigger lift, requires console setup), strong/unique password, incident response via the Firebase console (disable account / revoke sessions), and periodic backups.
 - Implemented one concrete fix: admin sessions used to persist indefinitely (`browserLocalPersistence`, Firebase's default). Switched `Login.jsx` to `browserSessionPersistence`, so closing the browser tab now signs you out automatically. Tested and deployed.
 
-**Next up: Phase 5 — Polish.** Mobile nav check, image loading/empty states, favicon/meta tags, optional client-side category filter. This is also where real visual design direction comes in — everything built so far is deliberately bare-bones (plain borders, minimal styling) to prove functionality first.
+**Phase 5 — Polish (in progress).**
+- `index.html`: real `<title>` and `<meta name="description">`.
+- `Catalog.jsx`: chained-ternary conditional rendering for three states — loading / empty (`products.length === 0`) / populated.
+- `Admin.jsx`: `window.confirm()` guard before delete, after realizing delete was instant and permanent with no "are you sure."
+- Still to do: mobile nav check, optional category filter.
+
+**Dev/prod data separation (ad hoc, prompted by realizing local testing was hitting live data).** After deploying, local development (`localhost`) and the live site were both pointed at the same real Firestore/Storage/Auth — every local test upload/delete was a real change to live data, with no safety net. Set up the **Firebase Local Emulator Suite** to fix this properly (see Part 2) rather than just being careful by hand: installed Java (a Firestore emulator dependency, via Homebrew), added an `"emulators"` block to `firebase.json`, and wired `firebase.js` to connect to the emulators only when `import.meta.env.DEV` is true. Verified the emulators actually start and bind their ports correctly. Local dev now needs `npm run emulators` + `npm run dev` running together, with a separate test admin account created once via the Emulator UI.
 
 ---
 
@@ -161,5 +187,5 @@ louu-the-label/                  (repo root)
 
 *(This section gets updated as we keep working on this project — check back here for the latest state.)*
 
-- **Current phase**: Finishing Phase 4 hardening, about to start Phase 5 (polish).
-- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file).
+- **Current phase**: Phase 5 (polish) in progress. Also just finished setting up the Local Emulator Suite for dev/prod data separation — about to test it live for the first time.
+- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file), mobile nav check, optional category filter.

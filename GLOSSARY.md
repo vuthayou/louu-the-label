@@ -80,6 +80,8 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Spark plan** — Firebase's free tier. No Storage access on new projects.
 - **Blaze plan** — Firebase's pay-as-you-go tier (still has a free usage allowance within it); required to use Storage.
 - **Environment config** (`firebaseConfig`) — the values identifying your Firebase project to the SDK. Public by design — not a secret, unlike a real API key/password for most other services.
+- **Emulator / Local Emulator Suite** — locally-run, throwaway copies of Firestore/Storage/Auth with zero connection to the real cloud project, used so local development/testing never touches live data. Started with `npm run emulators`; the app auto-connects to them during `npm run dev` via `import.meta.env.DEV`.
+- **Environment (dev vs. prod)** — "dev" (or "development") means your local, in-progress setup (`npm run dev`, now backed by emulators); "prod" (production) means the real, live, deployed version. The whole point of the emulator setup is keeping these two fully separate.
 
 ## Security
 
