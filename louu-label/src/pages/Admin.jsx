@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   doc,
   getDocs,
   serverTimestamp,
@@ -18,6 +19,7 @@ function Admin() {
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [products, setProducts] = useState([])
+  const [archivedProducts, setArchivedProducts] = useState([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
@@ -44,12 +46,20 @@ function Admin() {
   }, [])
 
   useEffect(() => {
-    if (user) fetchProducts()
+    if (user) {
+      fetchProducts()
+      fetchArchivedProducts()
+    }
   }, [user])
 
   async function fetchProducts() {
     const snapshot = await getDocs(collection(db, 'products'))
     setProducts(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+  }
+
+  async function fetchArchivedProducts() {
+    const snapshot = await getDocs(collection(db, 'archivedProducts'))
+    setArchivedProducts(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
   }
 
   function resetForm() {
@@ -128,6 +138,32 @@ function Admin() {
     if (!window.confirm('Delete this product? This cannot be undone.')) return
     await deleteDoc(doc(db, 'products', id))
     setProducts((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  // Archiving/restoring "moves" a product between collections: write its
+  // data to the destination (keeping the same doc ID via setDoc, rather
+  // than addDoc which would generate a new one), then delete the original.
+  async function handleArchive(product) {
+    const { id, ...data } = product
+    await setDoc(doc(db, 'archivedProducts', id), data)
+    await deleteDoc(doc(db, 'products', id))
+    await fetchProducts()
+    await fetchArchivedProducts()
+  }
+
+  async function handleRestore(product) {
+    const { id, ...data } = product
+    await setDoc(doc(db, 'products', id), data)
+    await deleteDoc(doc(db, 'archivedProducts', id))
+    await fetchProducts()
+    await fetchArchivedProducts()
+  }
+
+  async function handleDeleteArchived(id) {
+    if (!window.confirm('Permanently delete this archived product? This cannot be undone.'))
+      return
+    await deleteDoc(doc(db, 'archivedProducts', id))
+    setArchivedProducts((prev) => prev.filter((p) => p.id !== id))
   }
 
   if (!authChecked) {
@@ -250,6 +286,12 @@ function Admin() {
                 Edit
               </button>
               <button
+                onClick={() => handleArchive(product)}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Archive
+              </button>
+              <button
                 onClick={() => handleDelete(product.id)}
                 className="text-sm text-red-600 hover:text-red-800 transition-colors"
               >
@@ -259,6 +301,46 @@ function Admin() {
           </div>
         ))}
       </div>
+
+      {archivedProducts.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-lg font-semibold mb-4">Archived</h2>
+          <div className="flex flex-col gap-3">
+            {archivedProducts.map((product) => (
+              <div
+                key={product.id}
+                className="flex items-center justify-between border border-gray-200 rounded px-4 py-3 opacity-75"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={product.imageURL}
+                    alt={product.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                  <div>
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-sm text-gray-500">${product.price}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleRestore(product)}
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Move back live
+                  </button>
+                  <button
+                    onClick={() => handleDeleteArchived(product.id)}
+                    className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
