@@ -44,7 +44,8 @@ louu-label/
 ## Development phases
 
 **Phase 0 — Setup**
-- Scaffold via `npm create vite@latest . -- --template react`
+- Scaffold via `npm create vite@latest 
+. -- --template react`
 - Install: firebase, react-router-dom
 - Install Tailwind CSS v4 via `@tailwindcss/vite` plugin (added to vite.config.js); `src/index.css` is just `@import "tailwindcss";` — no tailwind.config.js/postcss.config.js needed (v4 auto-detects content, no separate config)
 - Firebase project/console setup is done manually by user (not agent-actionable)
@@ -74,4 +75,4 @@ louu-label/
 - Optional: client-side category filter over already-fetched products (no new backend logic)
 
 ## Current status
-Phase 0 done (vite scaffold, firebase, react-router-dom, Tailwind v4 all installed and building). User still needs to do manual Firebase console setup before Phase 2. Next: Phase 1.
+Phases 0-4 done. Site is live at https://louu-the-label.web.app. Firestore + Storage rules are deployed and locked down (public read, authenticated-write-only) — verified in the Firebase console to match firestore.rules/storage.rules exactly. firebase.json/.firebaserc are set up so `firebase deploy` pushes hosting + both rule sets together. Note: react-router-dom routing (`/` and `/admin`) was deferred until Phase 3 rather than added in Phase 1, since there was nothing to route between until `/admin` existed. Post-Phase-4 hardening: Login.jsx now sets browserSessionPersistence before sign-in, so admin sessions end when the tab closes rather than persisting indefinitely — deployed live. Next: Phase 5 — polish (mobile nav check, image loading/empty states, favicon/meta tags, optional category filter).
