@@ -6,7 +6,7 @@ function ProductCard({ product }) {
       <img
         src={imageURL}
         alt={name}
-        className="w-full aspect-[4/5] object-cover"
+        className="w-full aspect-[4/5] object-cover bb-gray-100"
       />
       <div className="p-4">
         <p className="text-xs uppercase tracking-wide text-gray-400">{category}</p>
