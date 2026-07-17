@@ -27,12 +27,19 @@ function Admin() {
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  const [notes, setNotes] = useState('')
   const [imageFile, setImageFile] = useState(null)
 
   // null = form is adding a new product; otherwise the Firestore doc ID
   // of the product currently being edited.
   const [editingId, setEditingId] = useState(null)
   const [existingImageURL, setExistingImageURL] = useState('')
+
+  // Notes live in a separate collection (see fetchNotes), keyed by product
+  // ID, so this is a lookup map: { [productId]: notesText }.
+  const [notesMap, setNotesMap] = useState({})
+  // Which active product's detail panel is currently open (one at a time).
+  const [expandedId, setExpandedId] = useState(null)
 
   // This is what makes the page "auth-gated": we track sign-in state here
   // and render different UI for each case, rather than using a separate
@@ -49,6 +56,7 @@ function Admin() {
     if (user) {
       fetchProducts()
       fetchArchivedProducts()
+      fetchNotes()
     }
   }, [user])
 
@@ -62,11 +70,21 @@ function Admin() {
     setArchivedProducts(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
   }
 
+  async function fetchNotes() {
+    const snapshot = await getDocs(collection(db, 'productNotes'))
+    const map = {}
+    snapshot.docs.forEach((d) => {
+      map[d.id] = d.data().notes
+    })
+    setNotesMap(map)
+  }
+
   function resetForm() {
     setName('')
     setPrice('')
     setDescription('')
     setCategory('')
+    setNotes('')
     setImageFile(null)
     setEditingId(null)
     setExistingImageURL('')
@@ -78,6 +96,7 @@ function Admin() {
     setPrice(String(product.price))
     setDescription(product.description)
     setCategory(product.category)
+    setNotes(notesMap[product.id] || '')
     setExistingImageURL(product.imageURL)
     setImageFile(null)
     setError('')
@@ -105,6 +124,7 @@ function Admin() {
         imageURL = await getDownloadURL(imageRef)
       }
 
+      let productId = editingId
       if (editingId) {
         await updateDoc(doc(db, 'products', editingId), {
           name,
@@ -114,7 +134,9 @@ function Admin() {
           imageURL,
         })
       } else {
-        await addDoc(collection(db, 'products'), {
+        // addDoc generates the ID, so we don't know it until it resolves —
+        // needed below to save notes under the same ID as the product.
+        const newDoc = await addDoc(collection(db, 'products'), {
           name,
           price: Number(price),
           description,
@@ -122,11 +144,22 @@ function Admin() {
           imageURL,
           createdAt: serverTimestamp(),
         })
+        productId = newDoc.id
+      }
+
+      // Notes live in their own auth-only collection (see the "why" note
+      // in fetchNotes) — keeping it in sync with the form here. An empty
+      // notes field deletes any existing notes doc rather than leaving one.
+      if (notes.trim()) {
+        await setDoc(doc(db, 'productNotes', productId), { notes })
+      } else {
+        await deleteDoc(doc(db, 'productNotes', productId))
       }
 
       resetForm()
       e.target.reset() // clears the file input, which React can't control directly
       await fetchProducts()
+      await fetchNotes()
     } catch {
       setError(editingId ? 'Update failed. Please try again.' : 'Upload failed. Please try again.')
     } finally {
@@ -137,6 +170,7 @@ function Admin() {
   async function handleDelete(id) {
     if (!window.confirm('Delete this product? This cannot be undone.')) return
     await deleteDoc(doc(db, 'products', id))
+    await deleteDoc(doc(db, 'productNotes', id)) // no-op if no notes exist
     setProducts((prev) => prev.filter((p) => p.id !== id))
   }
 
@@ -163,7 +197,12 @@ function Admin() {
     if (!window.confirm('Permanently delete this archived product? This cannot be undone.'))
       return
     await deleteDoc(doc(db, 'archivedProducts', id))
+    await deleteDoc(doc(db, 'productNotes', id)) // no-op if no notes exist
     setArchivedProducts((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  function toggleExpand(id) {
+    setExpandedId((prev) => (prev === id ? null : id))
   }
 
   if (!authChecked) {
@@ -234,6 +273,12 @@ function Admin() {
           required
           className="border border-gray-300 rounded px-3 py-2"
         />
+        <textarea
+          placeholder="Notes (admin-only, never shown to customers)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2"
+        />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex items-center gap-3">
           <button
@@ -263,41 +308,62 @@ function Admin() {
 
       <div className="flex flex-col gap-3">
         {products.map((product) => (
-          <div
-            key={product.id}
-            className="flex items-center justify-between border border-gray-200 rounded px-4 py-3"
-          >
-            <div className="flex items-center gap-3">
-              <img
-                src={product.imageURL}
-                alt={product.name}
-                className="w-12 h-12 object-cover rounded"
-              />
-              <div>
-                <p className="font-medium">{product.name}</p>
-                <p className="text-sm text-gray-500">${product.price}</p>
+          <div key={product.id} className="border border-gray-200 rounded">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={product.imageURL}
+                  alt={product.name}
+                  className="w-12 h-12 object-cover rounded"
+                />
+                <div>
+                  <p className="font-medium">{product.name}</p>
+                  <p className="text-sm text-gray-500">${product.price}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleExpand(product.id)}
+                  aria-label={expandedId === product.id ? 'Collapse details' : 'Expand details'}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  {expandedId === product.id ? '▲' : '▼'}
+                </button>
+                <button
+                  onClick={() => handleEditClick(product)}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleArchive(product)}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Archive
+                </button>
+                <button
+                  onClick={() => handleDelete(product.id)}
+                  className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                >
+                  Delete
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleEditClick(product)}
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleArchive(product)}
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Archive
-              </button>
-              <button
-                onClick={() => handleDelete(product.id)}
-                className="text-sm text-red-600 hover:text-red-800 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+            {expandedId === product.id && (
+              <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-600 flex flex-col gap-2">
+                <p>
+                  <span className="font-medium text-gray-900">Category:</span> {product.category}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Description:</span>{' '}
+                  {product.description}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Notes:</span>{' '}
+                  {notesMap[product.id] || '—'}
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
