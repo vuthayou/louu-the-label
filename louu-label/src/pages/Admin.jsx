@@ -82,6 +82,7 @@ function Admin() {
   }
 
   async function handleDelete(id) {
+    if (!window.confirm('Delete this product? This cannot be undone.')) return
     await deleteDoc(doc(db, 'products', id))
     setProducts((prev) => prev.filter((p) => p.id !== id))
   }
