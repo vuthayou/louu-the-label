@@ -44,6 +44,22 @@ The UI library. Instead of writing raw HTML, you write JavaScript functions that
     fetchProducts()
   }, []) // empty array = run once, on mount
   ```
+- **Conditional rendering with ternaries** — JSX's `{ }` only accepts *expressions*, not statements, so you can't write a plain `if`/`else` inside them. JS's ternary operator (`condition ? valueIfTrue : valueIfFalse`) is the workaround — it's an if/else that evaluates to a value. `Catalog.jsx` chains two of them to pick between three mutually-exclusive states:
+  ```jsx
+  {loading ? (
+    <p>Loading products...</p>
+  ) : products.length === 0 ? (
+    <p>No products yet.</p>
+  ) : (
+    <ProductGrid products={products} />
+  )}
+  ```
+  Read it as nested if/else: `loading ? (...)` is the "if"; everything after the *first* `:` is the "else," which happens to itself be another ternary (`products.length === 0 ? ... : ...`). There's no explicit `&&` ("AND") anywhere, but the nesting encodes "not loading AND products.length === 0" implicitly — the second check only ever gets reached once the first has already failed. You could write the same logic flatter with explicit `&&`:
+  ```jsx
+  {!loading && products.length === 0 && <p>No products yet.</p>}
+  {!loading && products.length > 0 && <ProductGrid products={products} />}
+  ```
+  but that's two separate expressions instead of one, and reads less cleanly for "exactly one of these three things renders." Both are valid — the ternary chain is just the more common pattern for this shape of problem.
 
 ### Tailwind CSS
 A utility-class styling approach — instead of writing custom CSS classes in a separate `.css` file, you compose small pre-made classes directly on elements: `className="text-xl font-bold text-gray-900"`. We used **Tailwind v4**, which is simpler to set up than older versions — no `tailwind.config.js` or `postcss.config.js` needed, just a Vite plugin (`@tailwindcss/vite`) and one line in your CSS file: `@import "tailwindcss";`.

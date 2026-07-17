@@ -27,6 +27,8 @@ function Catalog() {
       <Navbar />
       {loading ? (
         <p className="text-center py-12 text-gray-500">Loading products...</p>
+      ) : products.length === 0 ? (
+        <p className="text-center py-12 text-gray-500">No products yet.</p>
       ) : (
         <ProductGrid products={products} />
       )}
