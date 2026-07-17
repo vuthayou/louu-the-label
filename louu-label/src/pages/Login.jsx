@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   signInWithEmailAndPassword,
   setPersistence,
@@ -29,6 +30,9 @@ function Login() {
 
   return (
     <div className="max-w-sm mx-auto mt-24 px-6">
+      <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+        Louu
+      </Link>
       <h1 className="text-xl font-semibold mb-6">Admin Login</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <input

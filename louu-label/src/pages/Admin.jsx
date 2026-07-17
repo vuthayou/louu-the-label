@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import {
   collection,
@@ -98,6 +99,9 @@ function Admin() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-8">
+        <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          Louu
+        </Link>
         <h1 className="text-xl font-semibold">Admin</h1>
         <button
           onClick={() => signOut(auth)}
