@@ -38,8 +38,9 @@ function Admin() {
   // Notes live in a separate collection (see fetchNotes), keyed by product
   // ID, so this is a lookup map: { [productId]: notesText }.
   const [notesMap, setNotesMap] = useState({})
-  // Which active product's detail panel is currently open (one at a time).
-  const [expandedId, setExpandedId] = useState(null)
+  // Which active products' detail panels are currently open — a Set so any
+  // number of products can be expanded at once, independently of each other.
+  const [expandedIds, setExpandedIds] = useState(new Set())
 
   // This is what makes the page "auth-gated": we track sign-in state here
   // and render different UI for each case, rather than using a separate
@@ -202,36 +203,26 @@ function Admin() {
   }
 
   function toggleExpand(id) {
-    setExpandedId((prev) => (prev === id ? null : id))
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
-  if (!authChecked) {
-    return <p className="text-center py-12 text-gray-500">Loading...</p>
-  }
-
-  if (!user) {
-    return <Login />
-  }
-
-  return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-          Louu
-        </Link>
-        <h1 className="text-xl font-semibold">Admin</h1>
-        <button
-          onClick={() => signOut(auth)}
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          Sign out
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 mb-12">
+  // Shared by both the "Add product" form (top of page) and the inline
+  // edit form (inside a product's expand panel) — only one of the two is
+  // ever mounted at a time, since editingId hides the add form while set.
+  function renderForm() {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {editingId && (
           <p className="text-sm text-gray-500">
-            Editing "{name}" — leave the image field empty to keep the current photo.
+            Leave the image field empty to keep the current photo.
           </p>
         )}
         <input
@@ -305,67 +296,111 @@ function Admin() {
           )}
         </div>
       </form>
+    )
+  }
+
+  if (!authChecked) {
+    return <p className="text-center py-12 text-gray-500">Loading...</p>
+  }
+
+  if (!user) {
+    return <Login />
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          Louu
+        </Link>
+        <h1 className="text-xl font-semibold">Admin</h1>
+        <button
+          onClick={() => signOut(auth)}
+          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+
+      {editingId ? (
+        <p className="text-sm text-gray-500 mb-12">
+          Finish or cancel editing below before adding a new product.
+        </p>
+      ) : (
+        <div className="mb-12">{renderForm()}</div>
+      )}
 
       <div className="flex flex-col gap-3">
-        {products.map((product) => (
-          <div key={product.id} className="border border-gray-200 rounded">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={product.imageURL}
-                  alt={product.name}
-                  className="w-12 h-12 object-cover rounded"
-                />
-                <div>
-                  <p className="font-medium">{product.name}</p>
-                  <p className="text-sm text-gray-500">${product.price}</p>
+        {products.map((product) => {
+          const isEditingThis = editingId === product.id
+          const isExpanded = expandedIds.has(product.id) || isEditingThis
+          return (
+            <div key={product.id} className="border border-gray-200 rounded">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={product.imageURL}
+                    alt={product.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                  <div>
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-sm text-gray-500">${product.price}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => toggleExpand(product.id)}
+                    aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    {isExpanded ? '▲' : '▼'}
+                  </button>
+                  <button
+                    onClick={() => handleArchive(product)}
+                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Archive
+                  </button>
+                  <button
+                    onClick={() => handleDelete(product.id)}
+                    className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleExpand(product.id)}
-                  aria-label={expandedId === product.id ? 'Collapse details' : 'Expand details'}
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  {expandedId === product.id ? '▲' : '▼'}
-                </button>
-                <button
-                  onClick={() => handleEditClick(product)}
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleArchive(product)}
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Archive
-                </button>
-                <button
-                  onClick={() => handleDelete(product.id)}
-                  className="text-sm text-red-600 hover:text-red-800 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+              {isExpanded && (
+                <div className="border-t border-gray-200 px-4 py-3">
+                  {isEditingThis ? (
+                    renderForm()
+                  ) : (
+                    <div className="text-sm text-gray-600 flex flex-col gap-2">
+                      <p>
+                        <span className="font-medium text-gray-900">Category:</span>{' '}
+                        {product.category}
+                      </p>
+                      <p>
+                        <span className="font-medium text-gray-900">Description:</span>{' '}
+                        {product.description}
+                      </p>
+                      <p>
+                        <span className="font-medium text-gray-900">Notes:</span>{' '}
+                        {notesMap[product.id] || '—'}
+                      </p>
+                      <button
+                        onClick={() => handleEditClick(product)}
+                        className="self-end text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            {expandedId === product.id && (
-              <div className="border-t border-gray-200 px-4 py-3 text-sm text-gray-600 flex flex-col gap-2">
-                <p>
-                  <span className="font-medium text-gray-900">Category:</span> {product.category}
-                </p>
-                <p>
-                  <span className="font-medium text-gray-900">Description:</span>{' '}
-                  {product.description}
-                </p>
-                <p>
-                  <span className="font-medium text-gray-900">Notes:</span>{' '}
-                  {notesMap[product.id] || '—'}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {archivedProducts.length > 0 && (

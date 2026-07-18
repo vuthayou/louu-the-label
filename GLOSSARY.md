@@ -76,6 +76,7 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Session** — the period a user stays logged in. **Persistence** setting controls how long: `browserLocalPersistence` (default, indefinite) vs `browserSessionPersistence` (ends when the tab closes) — we switched to the latter for the admin login.
 - **Token** — a piece of data (usually cryptographically signed) proving a user is authenticated, used behind the scenes by Firebase Auth on every request instead of resending your password.
 - **Security rules** — the config controlling who can read/write Firestore/Storage data, written in a rules-specific syntax, deployed via `firebase deploy`.
+- **Data-layer privacy** — restricting access via security rules on the actual database, as opposed to just not displaying something in the UI. A field on a publicly-readable document is publicly readable in full, regardless of what your components render — real privacy means a separate collection (or field-level rules) that Firestore itself rejects unauthenticated requests for. See the Admin Notes feature: `productNotes` is a separate collection from `products` for exactly this reason.
 - **Deploy / deployment** — publishing your built app (and rules) to the live environment.
 - **Spark plan** — Firebase's free tier. No Storage access on new projects.
 - **Blaze plan** — Firebase's pay-as-you-go tier (still has a free usage allowance within it); required to use Storage.
@@ -98,6 +99,7 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Promise** — an object representing a value that isn't ready yet but will be (or will fail) — the standard way JS handles things that take time, like a network request to Firestore.
 - **async / await** — syntax for working with Promises as if they were synchronous code. `await getDocs(...)` pauses that function until Firestore responds, without freezing the whole app. Every Firebase call in this project (`fetchProducts`, `handleUpload`, `signInWithEmailAndPassword`) is async for this reason.
 - **JSON (JavaScript Object Notation)** — a plain-text data format (`{ "key": "value" }`) used everywhere: `package.json`, `firebase.json`, and it's also the shape Firestore documents come back as in your JS code.
+- **Lookup map** — a plain JS object used as a dictionary, keyed by some ID, for instant lookups instead of looping/searching an array every time. `notesMap` in `Admin.jsx` (`{ [productId]: notesText }`) is one — built once from a Firestore fetch, then any product's notes are grabbed with `notesMap[id]` rather than searching a list.
 
 ## Essential Project Files (and how they connect)
 

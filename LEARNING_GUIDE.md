@@ -85,6 +85,22 @@ Rules live in `firestore.rules` / `storage.rules`, get compiled and deployed by 
 
 **Firestore has a "test mode" option** when you first create it — open read/write, no auth required, expires after ~30 days. Useful for early development before real rules exist, but must be replaced before going live (which we did in Phase 4).
 
+### Data-layer privacy vs. UI-only hiding
+A pattern worth internalizing: **not rendering something in the UI is not the same as it being private.** `products` has `allow read: if true` — that grants access to the *entire document*, every field, to anyone with the Firestore SDK, regardless of what `ProductCard.jsx` actually chooses to display. If you added a `notes` field to that same document intending it to be admin-only, a customer could still read it directly (open browser dev tools, call the SDK) even though your React code never renders it anywhere.
+
+The fix, used for both the admin notes and the archived-products features: put anything that needs *real* privacy in its **own collection**, with its own `firestore.rules` block restricting access at the data layer (`allow read, write: if request.auth != null`). Then it doesn't matter what the UI does or doesn't render — unauthenticated requests are rejected by Firestore itself before your app code ever runs.
+
+### Lookup maps (an object as a dictionary)
+When you have two related pieces of data in separate collections (products, and their notes) but want to look one up by the other's ID quickly, a common pattern is building a plain JS object keyed by ID — effectively using it as a dictionary/hash map:
+```js
+const map = {}
+snapshot.docs.forEach((d) => {
+  map[d.id] = d.data().notes
+})
+// later: notesMap[product.id] — instant lookup, no searching/looping needed
+```
+This avoids looping through the notes array every time you need one product's notes — you fetch once, build the map once, then any lookup is instant (`notesMap[someId]`).
+
 ### Local Emulator Suite (dev/prod data separation)
 Once the site was live, a new problem appeared: `localhost` and the live site both pointed at the *same* real Firestore/Storage/Auth. Every test upload or delete during local development was actually happening to real, live customer-facing data — there was no separation between "testing" and "real."
 
@@ -115,27 +131,28 @@ How it's wired up:
 louu-the-label/                  (repo root)
 ├── CLAUDE.md                    Instructions Claude reads every session: stack, phases, current status
 ├── LEARNING_GUIDE.md            This file
+├── GLOSSARY.md                  Quick-reference terminology companion to this guide
 └── louu-label/                  All actual app code lives here
     ├── index.html               The single real HTML page; React mounts into <div id="root">
     ├── vite.config.js           Vite setup, includes the Tailwind plugin
     ├── package.json             Lists installed packages (firebase, react-router-dom, etc.)
-    ├── firebase.json            Tells `firebase deploy` where your built site is (dist/) and where your rules files are
+    ├── firebase.json            Tells `firebase deploy`/`firebase emulators:start` where your built site and rules files are, and emulator ports
     ├── .firebaserc              Which Firebase project this connects to (louu-the-label)
-    ├── firestore.rules          Firestore security rules (see Part 2)
+    ├── firestore.rules          Firestore security rules for all three collections (see Part 2)
     ├── storage.rules            Storage security rules
     └── src/
         ├── main.jsx             Entry point — mounts <App /> inside <BrowserRouter>
         ├── App.jsx              Defines the two routes: "/" and "/admin"
-        ├── firebase.js          Initializes Firebase, exports `db`, `storage`, `auth` for the rest of the app to use
+        ├── firebase.js          Initializes Firebase, exports `db`, `storage`, `auth`; connects to emulators when `import.meta.env.DEV`
         ├── index.css            Just `@import "tailwindcss";`
         ├── components/
         │   ├── Navbar.jsx       Site header (currently just shows "Louu")
         │   ├── ProductCard.jsx  Displays one product (image, name, category, price)
         │   └── ProductGrid.jsx  Takes a list of products, renders a ProductCard for each
         └── pages/
-            ├── Catalog.jsx      Public page ("/"). Fetches products from Firestore, shows loading state, renders ProductGrid
-            ├── Login.jsx        Email/password form — not its own route, rendered by Admin.jsx when logged out
-            └── Admin.jsx        The "/admin" route. Auth-gated: shows Login if signed out, otherwise the upload form + product list with delete buttons
+            ├── Catalog.jsx      Public page ("/"). Fetches products from `products` only, shows loading/empty states, renders ProductGrid
+            ├── Login.jsx        Email/password form — not its own route, rendered by Admin.jsx when logged out; has a "Louu" link back to "/"
+            └── Admin.jsx        The "/admin" route. Auth-gated. Add/Edit product form (with admin-only Notes field), product list with expand/Edit/Archive/Delete, and an Archived section with Restore/Delete
 ```
 
 **Why some things are structured the way they are:**
@@ -170,6 +187,12 @@ louu-the-label/                  (repo root)
 
 **Dev/prod data separation (ad hoc, prompted by realizing local testing was hitting live data).** After deploying, local development (`localhost`) and the live site were both pointed at the same real Firestore/Storage/Auth — every local test upload/delete was a real change to live data, with no safety net. Set up the **Firebase Local Emulator Suite** to fix this properly (see Part 2) rather than just being careful by hand: installed Java (a Firestore emulator dependency, via Homebrew), added an `"emulators"` block to `firebase.json`, and wired `firebase.js` to connect to the emulators only when `import.meta.env.DEV` is true. Verified the emulators actually start and bind their ports correctly. Local dev now needs `npm run emulators` + `npm run dev` running together, with a separate test admin account created once via the Emulator UI.
 
+**Admin feature additions (ad hoc, beyond the original Phase 3 spec, built during Phase 5).**
+- **Navigation**: added a "Louu" link (using `<Link>`, not a plain `<a>`, to preserve SPA behavior) on both `Login.jsx` and `Admin.jsx`, back to the public Catalog — there was previously no way back without editing the URL by hand.
+- **Edit**: `Admin.jsx`'s form became dual-purpose. New `editingId` state (`null` = adding, otherwise the product being edited) makes `handleSubmit` branch between `addDoc` and `updateDoc`. Editing doesn't force a new image upload — the image field is only `required` when *not* editing, and the existing `imageURL` is kept unless a new file is chosen. `createdAt` is deliberately never touched on edit.
+- **Archive / Restore**: introduced the idea of "moving" a document between Firestore collections — there's no native "move" operation, so it's actually a `setDoc` (writing the same data, and deliberately the *same document ID*, to the new collection) immediately followed by a `deleteDoc` on the original. Chose a genuinely separate `archivedProducts` collection over a boolean `archived` field on `products`, specifically so `Catalog.jsx` needs zero changes to stay correct — it only ever queries `products`, so archived items are invisible to the public site automatically, with no filtering logic required anywhere. Required a new `firestore.rules` block for `archivedProducts` (authenticated-only, no public read — there's no legitimate reason a customer needs to read archived inventory).
+- **Admin notes + expand panel**: a `notes` textarea per product, for admin reference only. This is where a real security nuance came up: `products` has `allow read: if true`, meaning *every field* on those documents — not just what `ProductCard.jsx` chooses to render — is technically fetchable by anyone via the Firestore SDK directly. Putting `notes` on the same document would only hide it by UI convention, not actually restrict access. So notes live in a *separate* `productNotes` collection (keyed by the same product ID, looked up via a `notesMap` — see Part 2), with its own `firestore.rules` block requiring authentication for both read and write. This is the same reasoning as the Archive decision, applied to a genuine privacy requirement rather than a display-organization one. An expand arrow (▼/▲) per product row, backed by a single `expandedId` state (one row open at a time), reveals category/description/notes without needing a separate detail page.
+
 ---
 
 ## Part 5 — Key Decisions & Lessons Log
@@ -180,6 +203,8 @@ louu-the-label/                  (repo root)
 - **Declined a third-party "skill" plugin**: a GitHub repo (`ui-ux-pro-max-skill`) had implausibly high stars for its age and an install step that would've run an unverified npm package via `npx` (arbitrary code execution) rather than just adding static instruction files. Good instinct to flag rather than blindly follow "install this" requests, even from convincing-looking repos.
 - **A dev-server mishap**: while sanity-checking a build, a background dev server was started and then cleaned up with a too-broad `pkill -f "vite"`, which also killed your own already-running dev server by accident. Lesson: when cleaning up a process started just for a quick check, target its specific PID, don't pattern-kill.
 - **Public Firebase config ≠ a secret**: the `apiKey` etc. in `firebase.js` are meant to be public; real security lives in the security rules, not in hiding config values.
+- **New standing rule (Phase 5)**: before writing any code for a request, summarize the main points of what's being built and wait for confirmation, rather than implementing immediately. Applies to actual code changes, not pure Q&A.
+- **UI-hidden ≠ access-controlled**: realized while adding admin notes that a field on a publicly-readable document is publicly readable in full, no matter what the UI renders. Real privacy requires rules enforcement at the data layer (a separate collection with its own auth-only rules), not just leaving something out of a component. See Part 2, "Data-layer privacy vs. UI-only hiding."
 
 ---
 
@@ -187,5 +212,7 @@ louu-the-label/                  (repo root)
 
 *(This section gets updated as we keep working on this project — check back here for the latest state.)*
 
-- **Current phase**: Phase 5 (polish) in progress. Also just finished setting up the Local Emulator Suite for dev/prod data separation — about to test it live for the first time.
-- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file), mobile nav check, optional category filter.
+- **Current phase**: Phase 5 (polish) in progress. Emulator Suite is set up and confirmed working. Since then, added Edit, Archive/Restore, and admin Notes+expand-panel to `Admin.jsx` (all beyond the original Phase 3 spec) — code done, `firestore.rules` updated with two new collection blocks (`archivedProducts`, `productNotes`), and a `firebase deploy` was run/in progress to push it all live. Taking a break here.
+- **Firestore collections now in play** (was just `products` through Phase 4): `products` (public read, live catalog), `archivedProducts` (auth-only, hidden/archived items), `productNotes` (auth-only, admin reference notes keyed by product ID).
+- **To pick back up next session**: confirm the deploy completed cleanly and that Edit/Archive/Notes all work against real live data (not just the emulator) — test plan was in the last conversation turns.
+- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file), mobile nav check, optional category filter, no auto-scroll to form when clicking Edit on a product further down the list.
