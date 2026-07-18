@@ -179,6 +179,8 @@ function Admin() {
   // data to the destination (keeping the same doc ID via setDoc, rather
   // than addDoc which would generate a new one), then delete the original.
   async function handleArchive(product) {
+    if (!window.confirm('Archive this product? It will be hidden from the live site until restored.'))
+      return
     const { id, ...data } = product
     await setDoc(doc(db, 'archivedProducts', id), data)
     await deleteDoc(doc(db, 'products', id))
@@ -356,18 +358,6 @@ function Admin() {
                   >
                     {isExpanded ? '▲' : '▼'}
                   </button>
-                  <button
-                    onClick={() => handleArchive(product)}
-                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    Archive
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    className="text-sm text-red-600 hover:text-red-800 transition-colors"
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
               {isExpanded && (
@@ -388,12 +378,26 @@ function Admin() {
                         <span className="font-medium text-gray-900">Notes:</span>{' '}
                         {notesMap[product.id] || '—'}
                       </p>
-                      <button
-                        onClick={() => handleEditClick(product)}
-                        className="self-end text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                      >
-                        Edit
-                      </button>
+                      <div className="self-end flex items-center gap-3">
+                        <button
+                          onClick={() => handleEditClick(product)}
+                          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleArchive(product)}
+                          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          Archive
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
