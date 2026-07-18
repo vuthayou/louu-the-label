@@ -34,6 +34,9 @@ function Admin() {
   // of the product currently being edited.
   const [editingId, setEditingId] = useState(null)
   const [existingImageURL, setExistingImageURL] = useState('')
+  // Whether the "Add product" form is currently revealed. Products are the
+  // default view on login now, not the form.
+  const [showAddForm, setShowAddForm] = useState(false)
 
   // Notes live in a separate collection (see fetchNotes), keyed by product
   // ID, so this is a lookup map: { [productId]: notesText }.
@@ -89,9 +92,11 @@ function Admin() {
     setImageFile(null)
     setEditingId(null)
     setExistingImageURL('')
+    setShowAddForm(false)
   }
 
   function handleEditClick(product) {
+    setShowAddForm(false)
     setEditingId(product.id)
     setName(product.name)
     setPrice(String(product.price))
@@ -324,12 +329,24 @@ function Admin() {
         </button>
       </div>
 
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Products</h2>
+        {!editingId && (
+          <button
+            onClick={() => setShowAddForm((prev) => !prev)}
+            className="bg-gray-900 text-white rounded px-3 py-2 text-sm hover:bg-gray-700 transition-colors"
+          >
+            {showAddForm ? 'Cancel' : 'Add product'}
+          </button>
+        )}
+      </div>
+
       {editingId ? (
-        <p className="text-sm text-gray-500 mb-12">
+        <p className="text-sm text-gray-500 mb-8">
           Finish or cancel editing below before adding a new product.
         </p>
       ) : (
-        <div className="mb-12">{renderForm()}</div>
+        showAddForm && <div className="mb-8">{renderForm()}</div>
       )}
 
       <div className="flex flex-col gap-3">
