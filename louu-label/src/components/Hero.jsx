@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
-import homeImage from '../assets/home.jpeg'
+import defaultHomeImage from '../assets/home.jpeg'
 
-function Hero() {
+// imageURL comes from Firestore (siteSettings/hero) via Home.jsx, set through
+// Admin's "Homepage" section. Falls back to the local file below until an
+// admin has ever set one, so the page never looks broken.
+function Hero({ imageURL }) {
   return (
     <div className="relative w-full h-[85vh] overflow-hidden">
       <img
-        src={homeImage}
+        src={imageURL || defaultHomeImage}
         alt="Louu the Label"
         className="absolute inset-0 w-full h-full object-cover object-[75%_15%]"
       />
