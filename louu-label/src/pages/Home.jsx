@@ -7,6 +7,7 @@ import Hero from '../components/Hero'
 
 function Home() {
   const [heroImageURL, setHeroImageURL] = useState('')
+  const [heroLoading, setHeroLoading] = useState(true)
 
   useEffect(() => {
     async function fetchHeroImage() {
@@ -14,6 +15,7 @@ function Home() {
       if (snapshot.exists()) {
         setHeroImageURL(snapshot.data().imageURL)
       }
+      setHeroLoading(false)
     }
 
     fetchHeroImage()
@@ -23,7 +25,9 @@ function Home() {
     <div>
       <div className="min-h-screen flex flex-col">
         <Navbar />
-        <Hero imageURL={heroImageURL} />
+        {/* Wait for the real photo before showing anything, rather than
+            flashing the local fallback and then swapping to it. */}
+        {heroLoading ? <div className="flex-1 bg-gray-100" /> : <Hero imageURL={heroImageURL} />}
       </div>
       <Footer />
     </div>
