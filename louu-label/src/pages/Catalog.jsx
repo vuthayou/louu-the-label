@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import ProductGrid from '../components/ProductGrid'
 
 function Catalog() {
@@ -32,6 +33,7 @@ function Catalog() {
       ) : (
         <ProductGrid products={products} />
       )}
+      <Footer />
     </div>
   )
 }

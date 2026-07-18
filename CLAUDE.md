@@ -26,15 +26,21 @@ louu-label/
 ├── package.json
 ├── src/
 │   ├── main.jsx
-│   ├── App.jsx              # routes: "/" (Catalog), "/admin" (Login/Admin)
+│   ├── App.jsx              # routes: "/" (Home), "/collection" (Catalog), "/about" (About), "/admin" (Login/Admin)
 │   ├── firebase.js          # Firebase init, exports db/storage/auth
 │   ├── index.css            # `@import "tailwindcss";` only
+│   ├── assets/
+│   │   └── home.jpeg        # hero photo
 │   ├── components/
-│   │   ├── Navbar.jsx
+│   │   ├── Navbar.jsx       # Louu/Collection/About Us links
+│   │   ├── Footer.jsx       # copyright line
+│   │   ├── Hero.jsx         # homepage banner: photo + title/tagline + Product Category/About Us links
 │   │   ├── ProductCard.jsx  # single product display
 │   │   └── ProductGrid.jsx  # responsive grid, maps products -> ProductCard
 │   └── pages/
-│       ├── Catalog.jsx      # public, fetches products from Firestore
+│       ├── Home.jsx         # public "/", Navbar + Hero + Footer
+│       ├── Catalog.jsx      # public "/collection", fetches products from Firestore
+│       ├── About.jsx        # public "/about", placeholder content
 │       ├── Login.jsx        # admin sign-in
 │       └── Admin.jsx        # protected: upload form + product list w/ delete
 ├── firebase.json            # public: "dist", SPA rewrite enabled

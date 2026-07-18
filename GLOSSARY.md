@@ -52,7 +52,7 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 
 ## Routing
 
-- **Route** — a mapping between a URL path and what should be shown, e.g. `/` → `Catalog`.
+- **Route** — a mapping between a URL path and what should be shown, e.g. `/` → `Home`, `/collection` → `Catalog`.
 - **Router** — the mechanism that watches the URL and renders the matching route. `<BrowserRouter>` provides this.
 - **Client-side routing** — changing what's shown based on the URL *without* asking the server for a new page — the SPA pattern `react-router-dom` implements.
 - **Rewrite rule** — a hosting-level config telling the server "for any URL, just serve `index.html` and let the client-side router figure out what to show." Necessary for SPAs so refreshing `/admin` doesn't 404 on a real server.
@@ -62,6 +62,8 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Utility-first CSS** — Tailwind's approach: small, single-purpose classes (`text-xl`, `px-4`) composed directly in your markup instead of writing custom CSS classes.
 - **className** — the JSX equivalent of HTML's `class` attribute (`class` is a reserved word in JS).
 - **Responsive design** — layouts that adapt to different screen sizes, typically via breakpoint prefixes like Tailwind's `sm:`, `md:`, `lg:`.
+- **Hero / hero section** — the large, prominent banner at the top of a page (usually an image with a headline overlaid), meant to be the first thing a visitor sees. `Hero.jsx` is this project's homepage banner.
+- **`object-fit` / `object-position`** — CSS controlling how an image fills a box that doesn't match its natural proportions. `object-cover` (Tailwind: `object-cover`) scales the image to fill the box completely, cropping whatever doesn't fit; `object-position` (Tailwind: `object-[x%_y%]`) controls *which part* gets kept vs. cropped. Used in `Hero.jsx` to control which part of the portrait-shaped photo shows inside the wide banner.
 
 ## Firebase / Data
 
