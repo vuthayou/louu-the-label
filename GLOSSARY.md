@@ -64,6 +64,7 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Responsive design** — layouts that adapt to different screen sizes, typically via breakpoint prefixes like Tailwind's `sm:`, `md:`, `lg:`.
 - **Hero / hero section** — the large, prominent banner at the top of a page (usually an image with a headline overlaid), meant to be the first thing a visitor sees. `Hero.jsx` is this project's homepage banner.
 - **`object-fit` / `object-position`** — CSS controlling how an image fills a box that doesn't match its natural proportions. `object-cover` (Tailwind: `object-cover`) scales the image to fill the box completely, cropping whatever doesn't fit; `object-position` (Tailwind: `object-[x%_y%]`) controls *which part* gets kept vs. cropped. Used in `Hero.jsx` to control which part of the portrait-shaped photo shows inside the wide banner.
+- **Flexbox / `flex` / `flex-1`** — a CSS layout mode for arranging items in a row or column that can grow/shrink to fill available space. `flex-1` (shorthand for `flex-grow: 1`) means "take up whatever space is left" — used in `Home.jsx` so `Hero` automatically fills the screen below `Navbar`, regardless of the Navbar's exact height.
 
 ## Firebase / Data
 
@@ -85,6 +86,18 @@ A quick-reference companion to `LEARNING_GUIDE.md`. That file explains concepts 
 - **Environment config** (`firebaseConfig`) — the values identifying your Firebase project to the SDK. Public by design — not a secret, unlike a real API key/password for most other services.
 - **Emulator / Local Emulator Suite** — locally-run, throwaway copies of Firestore/Storage/Auth with zero connection to the real cloud project, used so local development/testing never touches live data. Started with `npm run emulators`; the app auto-connects to them during `npm run dev` via `import.meta.env.DEV`.
 - **Environment (dev vs. prod)** — "dev" (or "development") means your local, in-progress setup (`npm run dev`, now backed by emulators); "prod" (production) means the real, live, deployed version. The whole point of the emulator setup is keeping these two fully separate.
+
+## Performance & Browser APIs
+
+- **Code-splitting** — building an app as multiple separate JS files instead of one giant bundle, so a visitor only downloads the code for the page they're actually on. Set up via `lazy()` + dynamic `import()` per route in `App.jsx`.
+- **`lazy()`** — a React function that turns a normal component import into one that's fetched on-demand, the first time it's actually rendered, instead of upfront.
+- **`Suspense`** — a React component that shows a fallback (e.g. "Loading...") while something inside it (like a `lazy()` component) is still being fetched.
+- **Chunk** — one of the separate output files a bundler produces when code-splitting, e.g. `Admin.js`, `firebase.js` in our build output. Vite/Rollup automatically groups shared dependencies (like the Firebase SDK) into their own chunk when multiple pages need them.
+- **Waterfall (network waterfall)** — when requests happen one-after-another instead of in parallel, because each depends on the previous one's result. Fetching the hero image is a waterfall: fetch the Firestore doc → get a URL back → *then* fetch the actual image from that URL — the second request can't start until the first finishes.
+- **`<canvas>`** — an HTML element for drawing/manipulating images and graphics via JS, pixel by pixel. Used by the hero crop tool to "cut out" the selected region of a photo into a new image file.
+- **CORS (Cross-Origin Resource Sharing)** — a browser security rule restricting how content from one origin (domain) can be used by JS running on a different origin. Relevant here: reading pixel data back out of a `<canvas>` after drawing a cross-origin image onto it can be blocked unless the image's server sent permissive CORS headers.
+- **Tainted canvas** — a `<canvas>` that's had a cross-origin image drawn onto it without proper CORS permission, blocking any further read of its contents (`toBlob`/`toDataURL` fail) as a security measure.
+- **Object URL** (`URL.createObjectURL`) — a temporary local URL pointing at a file/blob sitting in browser memory, not yet uploaded anywhere. Always same-origin, so it's safe for canvas operations, unlike a remote Storage URL.
 
 ## Security
 
@@ -111,7 +124,7 @@ Every file below exists for a specific reason — here's the minimal set for a V
 1. Browser requests a URL → the server (Vite in dev, Firebase Hosting in production) returns **`index.html`**.
 2. `index.html` contains a `<div id="root">` and a `<script type="module" src="/src/main.jsx">` tag — this is the one and only real HTML page; it hands off to JS immediately.
 3. **`src/main.jsx`** runs first. It imports `App` and `BrowserRouter`, and tells React to render `<App />` into that `<div id="root">`.
-4. **`src/App.jsx`** imports the page components (`Catalog`, `Admin`) and, using the router, decides which one to render based on the current URL.
+4. **`src/App.jsx`** lazily imports the page components (`Home`, `Catalog`, `About`, `Admin` — each its own on-demand chunk, see Performance & Browser APIs) and, using the router, decides which one to render based on the current URL.
 5. Whichever page renders imports **`src/firebase.js`** to get `db`/`storage`/`auth`, and imports whatever components it needs (`Navbar`, `ProductGrid`, etc.).
 6. Those components import each other further down (`ProductGrid` imports `ProductCard`) — a tree of imports, all traceable back to `main.jsx`.
 

@@ -67,11 +67,12 @@ A utility-class styling approach — instead of writing custom CSS classes in a 
 ### react-router-dom
 Lets a single-page React app show different "pages" based on the URL, without a real page reload. Three pieces:
 - `<BrowserRouter>` — wraps the whole app, watches the URL (set up in `main.jsx`)
-- `<Routes>` / `<Route>` — maps a URL path to a component (set up in `App.jsx`): `path="/"` → `Catalog`, `path="/admin"` → `Admin`
+- `<Routes>` / `<Route>` — maps a URL path to a component (set up in `App.jsx`): `path="/"` → `Home`, `path="/collection"` → `Catalog`, `path="/about"` → `About`, `path="/admin"` → `Admin`
+- `<Link>` — the router's version of `<a>`. Renders as a real link in the DOM, but navigation happens client-side instead of triggering a full page reload. Used for every internal link in this app (Navbar, Footer, Hero's "Product Category"/"About Us").
 
 ### Firebase (four separate services under one umbrella)
-- **Firestore** — the database. Stores data as *documents* inside *collections*. Our whole app has one collection, `products`, where each document is one product with fields `name`, `price`, `description`, `category`, `imageURL`, `createdAt`.
-- **Storage** — file storage, used specifically for the uploaded product images.
+- **Firestore** — the database. Stores data as *documents* inside *collections*. Now four collections: `products` (public), `archivedProducts` (private, archived items), `productNotes` (private, admin notes), `siteSettings` (public read — currently just the hero photo's URL).
+- **Storage** — file storage, for uploaded product images (`products/`) and the hero photo (`site/`).
 - **Authentication** — handles login. We use email/password, with exactly one admin account (no public sign-up).
 - **Hosting** — where the built site is actually served from publicly, plus deployment tooling (`firebase deploy`).
 
@@ -123,6 +124,26 @@ How it's wired up:
 
 **A subtlety worth remembering:** the `apiKey` and other values in `firebaseConfig` (inside `firebase.js`) look like secrets but aren't — they're meant to be public in client-side code. Actual security comes entirely from the rules above, not from hiding this config.
 
+### Filling the viewport with flexbox (`flex-1`)
+`Home.jsx` wraps `Navbar` + `Hero` in a `min-h-screen flex flex-col` container, with `Hero` set to `flex-1` instead of a fixed height like `h-[85vh]`. `flex-1` means "grow to fill whatever space is left in the flex container" — so regardless of the Navbar's actual rendered height (which we never have to calculate or hardcode), Hero automatically fills exactly what remains of the screen. This is the standard, robust pattern for "fill the rest of the viewport below a header" — a fixed-height guess (`85vh`) is fragile and was literally the cause of a visible gap bug we had to fix.
+
+### Third-party library vetting checklist
+Before adding a new npm package (like `react-easy-crop`), worth actually checking rather than assuming:
+- **License** — is it actually free for your use case? MIT/Apache/BSD are permissive (commercial use fine); check the real `LICENSE` file text, not just a label.
+- **Download counts** (`npm` registry) — is it genuinely widely used?
+- **GitHub stars vs. repo age** — organic growth over years is a good sign; huge star counts on a very young repo is a red flag (this is what sank the `ui-ux-pro-max-skill` plugin earlier).
+- **Recent commits / open issue count** — actively maintained, not abandoned.
+- **What the install step actually does** — adding a static dependency via `npm install` is very different from a setup script that runs arbitrary code (`npx some-package init`).
+
+### Browser image editing: canvas, object URLs, and CORS
+The hero photo crop tool touches three related browser concepts:
+- **`URL.createObjectURL(file)`** — makes a temporary local URL pointing at a file still sitting in browser memory, before it's uploaded anywhere. Lets the crop preview show your file instantly. Must be "revoked" (`URL.revokeObjectURL`) when done, or it leaks memory — handled automatically by a `useEffect` cleanup function.
+- **`<canvas>` for image manipulation** — drawing a specific rectangle of a source image onto a canvas, then reading that canvas back out as a file (`canvas.toBlob()`), is the standard way to actually "cut out" a crop selection into a new image. This is how the crop tool turns your drag/zoom selection into the real uploaded file.
+- **CORS and "tainted" canvases** — a browser security rule: if you draw an image from a *different origin* (e.g. a Firebase Storage URL) onto a canvas, and that server didn't send permissive CORS headers, the canvas becomes "tainted" and refuses to let you read its pixel data back out (`toBlob`/`toDataURL` fail). This is why the crop tool only works on a *newly selected file* (a same-origin `blob:` URL, always safe) and not the already-uploaded live photo (a cross-origin Storage URL, might fail).
+
+### Code-splitting (`lazy` + `Suspense`)
+By default, a Vite/React build bundles your entire app — every page, every route — into one JS file that every visitor downloads, whether they need it or not. `React.lazy(() => import('./pages/Admin'))` tells the bundler to build that page as a *separate* file, only fetched when someone actually navigates there. Paired with `<Suspense fallback={...}>` (which shows a fallback UI while a lazy chunk is being fetched), this is standard practice on real production sites — confirmed in our build output: `Admin.js` (37.72KB, including the crop library) is now completely absent from what a homepage visitor downloads, only fetched the moment someone visits `/admin`.
+
 ---
 
 ## Part 3 — This Project's File Structure, Explained
@@ -135,30 +156,40 @@ louu-the-label/                  (repo root)
 └── louu-label/                  All actual app code lives here
     ├── index.html               The single real HTML page; React mounts into <div id="root">
     ├── vite.config.js           Vite setup, includes the Tailwind plugin
-    ├── package.json             Lists installed packages (firebase, react-router-dom, etc.)
+    ├── package.json             Lists installed packages (firebase, react-router-dom, react-easy-crop, etc.)
     ├── firebase.json            Tells `firebase deploy`/`firebase emulators:start` where your built site and rules files are, and emulator ports
     ├── .firebaserc              Which Firebase project this connects to (louu-the-label)
-    ├── firestore.rules          Firestore security rules for all three collections (see Part 2)
-    ├── storage.rules            Storage security rules
+    ├── firestore.rules          Rules for all four collections (see Part 2)
+    ├── storage.rules            Rules for products/ and site/ upload paths
     └── src/
         ├── main.jsx             Entry point — mounts <App /> inside <BrowserRouter>
-        ├── App.jsx              Defines the two routes: "/" and "/admin"
+        ├── App.jsx              Routes, all lazy-loaded (code-splitting, see Part 2): "/" "/collection" "/about" "/admin"
         ├── firebase.js          Initializes Firebase, exports `db`, `storage`, `auth`; connects to emulators when `import.meta.env.DEV`
         ├── index.css            Just `@import "tailwindcss";`
+        ├── assets/
+        │   └── home.jpeg        Local fallback hero photo, used until an admin sets a real one via Storage
         ├── components/
-        │   ├── Navbar.jsx       Site header (currently just shows "Louu")
+        │   ├── Navbar.jsx       Louu/Collection/About Us links, shared across public pages
+        │   ├── Footer.jsx       Copyright line, shared across public pages
+        │   ├── Hero.jsx         Homepage banner — takes `imageURL` prop, falls back to the local asset
         │   ├── ProductCard.jsx  Displays one product (image, name, category, price)
         │   └── ProductGrid.jsx  Takes a list of products, renders a ProductCard for each
         └── pages/
-            ├── Catalog.jsx      Public page ("/"). Fetches products from `products` only, shows loading/empty states, renders ProductGrid
-            ├── Login.jsx        Email/password form — not its own route, rendered by Admin.jsx when logged out; has a "Louu" link back to "/"
-            └── Admin.jsx        The "/admin" route. Auth-gated. Add/Edit product form (with admin-only Notes field), product list with expand/Edit/Archive/Delete, and an Archived section with Restore/Delete
+            ├── Home.jsx           Public "/" — Navbar + Hero (fetches siteSettings/hero) + Footer
+            ├── Catalog.jsx        Public "/collection" — the actual product grid, fetches from `products`
+            ├── About.jsx          Public "/about" — placeholder content
+            ├── Login.jsx          Email/password form — not its own route, rendered by Admin.jsx when logged out
+            ├── Admin.jsx          "/admin" shell — auth-gate, header, tab nav (SECTIONS array) switching sections
+            ├── AdminProducts.jsx  Products tab — add/edit form, product list (expand/Edit/Archive/Delete), Archived section
+            └── AdminHomepage.jsx  Homepage tab — hero photo upload with interactive crop (react-easy-crop)
 ```
 
 **Why some things are structured the way they are:**
 - `ProductGrid`/`ProductCard` never needed to change between Phase 1 (dummy data) and Phase 2 (real Firestore data) — they just take a `products` array as a prop and don't care where it came from. This is a deliberate pattern: keep display components "dumb," push data-fetching to the page level.
 - `Login.jsx` isn't its own route. `Admin.jsx` renders it directly when nobody's signed in, and reacts automatically to sign-in success via `onAuthStateChanged` — no manual redirect code needed.
 - Routing (`react-router-dom`) wasn't added until Phase 3, even though the package was installed in Phase 0 — there was nothing to route *between* until `/admin` existed. Avoid adding infrastructure before there's a use for it.
+- `Home.jsx` and `Catalog.jsx` are separate pages/routes, not one combined page — a deliberate split after noticing "Catalog" was a misleading name once it started showing a hero banner instead of products. Now the Navbar's "Collection" link and the Hero's "Product Category" link both have a real, honest destination (`/collection`) instead of pointing at a page that no longer matched its name.
+- `Admin.jsx` is a thin shell (auth-gate, header, tab nav) around `AdminProducts.jsx`/`AdminHomepage.jsx`, each fully self-contained (own state, own Firestore fetches). Adding a future Admin section is "write a new file, add one line to the `SECTIONS` array" — no changes needed to the shell itself. Chosen over real sub-routes (`/admin/products`) for now since it's less to build; tabs use simple state instead of the URL, meaning switching tabs remounts the hidden one fresh rather than preserving its exact UI state (e.g. which panel was expanded) — an accepted tradeoff for the "simple for now" version.
 
 ---
 
@@ -193,6 +224,20 @@ louu-the-label/                  (repo root)
 - **Archive / Restore**: introduced the idea of "moving" a document between Firestore collections — there's no native "move" operation, so it's actually a `setDoc` (writing the same data, and deliberately the *same document ID*, to the new collection) immediately followed by a `deleteDoc` on the original. Chose a genuinely separate `archivedProducts` collection over a boolean `archived` field on `products`, specifically so `Catalog.jsx` needs zero changes to stay correct — it only ever queries `products`, so archived items are invisible to the public site automatically, with no filtering logic required anywhere. Required a new `firestore.rules` block for `archivedProducts` (authenticated-only, no public read — there's no legitimate reason a customer needs to read archived inventory).
 - **Admin notes + expand panel**: a `notes` textarea per product, for admin reference only. This is where a real security nuance came up: `products` has `allow read: if true`, meaning *every field* on those documents — not just what `ProductCard.jsx` chooses to render — is technically fetchable by anyone via the Firestore SDK directly. Putting `notes` on the same document would only hide it by UI convention, not actually restrict access. So notes live in a *separate* `productNotes` collection (keyed by the same product ID, looked up via a `notesMap` — see Part 2), with its own `firestore.rules` block requiring authentication for both read and write. This is the same reasoning as the Archive decision, applied to a genuine privacy requirement rather than a display-organization one. An expand arrow (▼/▲) per product row, backed by a single `expandedId` state (one row open at a time), reveals category/description/notes without needing a separate detail page.
 
+**Admin UI iteration (several rounds of direct feedback, all Phase 5).** The expand feature evolved through a few rounds: `expandedId` became `expandedIds` (a `Set`) so any number of products can be expanded simultaneously, not just one at a time. Edit moved out of the always-visible button row and into the expand panel itself — clicking Edit now opens that row's panel directly in an editable state, rather than jumping to a form at the top of the page (which had a known "no auto-scroll" rough edge). Then, on a design-standpoint question, Archive and Delete moved into the expand panel too, leaving the top row as just the ▼ arrow — the reasoning: Archive had no confirmation dialog and sat right next to a low-stakes, frequently-clicked button, a real mis-click risk; Archive now also asks for confirmation, matching Delete. Finally, the Admin page itself was restructured so **products are the default view on login** (not a big form) — a `showAddForm` toggle reveals the Add form on demand via an "Add product" button instead.
+
+**Building the homepage (Hero) — a real design constraint, not just code.** Given a mockup image and a real photo to use, the two didn't match: the mockup was an ultra-wide banner (~2.2:1), the photo was portrait (~0.8:1) — forcing it into the mockup's shape would've cropped away more than half of it. This got resolved by directly asking what tradeoff was acceptable (the user confirmed the mockup itself already showed a similar crop, so matching that crop was the answer, not preserving the whole photo) rather than silently picking an approach. Built as: a `Hero` component using `object-cover` + `object-position` (tuned via trial — `object-[75%_15%]` — to keep her face/hands in frame and crop from the bottom), a large `font-serif` title, a tracked-out tagline, and two bottom links, with everything progressively centered per direct feedback (title/tagline first, then the bottom links too). A separate, explicit standing rule came out of this: **layout/positioning work now, fonts and colors deferred to later** — and when first stated as homepage-specific, the user corrected that it actually applies **site-wide**.
+
+**Home vs. Catalog split.** Once the Hero replaced the product grid on `/`, "Catalog.jsx" stopped being an honest name for a page showing a hero banner. Rather than silently rename, this became an explicit question: one combined homepage-with-catalog, or two separate pages? Chose two — `Home.jsx` (`/`, hero-only) and `Catalog.jsx` (`/collection`, product grid, unchanged) — which also gave the Hero's "Product Category" link and the Navbar's "Collection" link a real, correct destination for the first time.
+
+**Two viewport-fill bugs, both simple once found.** (1) The Hero left a visible gap of white space below it — root cause: `h-[85vh]` is a fixed height that doesn't account for the Navbar's actual size. Fixed by switching to the `flex-1` pattern (see Part 2). (2) After that fix, a *second* gap appeared, this time between the Hero and the Footer — root cause: `Footer.jsx` had a leftover `mt-12` margin from when it always sat in normal document flow after page content; once Footer became a sibling of the `min-h-screen` Hero wrapper, that margin rendered as a visible gap. Removed it from `Footer.jsx` since the other pages (Catalog, About) already have their own bottom padding and didn't need it either. Lesson: a shared component's own margin can conflict with how a *different* page chooses to lay things out around it — spacing is often better owned by the page than baked into the shared component.
+
+**Making the hero photo admin-editable.** Originally a hardcoded, bundled file — turned into real content: a `siteSettings/hero` Firestore doc storing an `imageURL`, a new `site/` Storage path, a new Admin "Homepage" tab to upload it, and `Hero.jsx` taking `imageURL` as a prop with the original local file kept only as a fallback for "nothing's been set yet." This is also where the Admin page got restructured from one long page into **tabs** (`Admin.jsx` shell + `AdminProducts.jsx` + `AdminHomepage.jsx`), explicitly to make room for "all the other pages I need in the future" without every new section growing one giant file.
+
+**Interactive crop tool.** Went from a static preview box to genuine drag/zoom/crop control, using `react-easy-crop` (explicitly vetted before installing — see Part 2's library checklist, and the MIT license was double-checked against the actual `LICENSE` file text, not just a label, since this is for a commercial site). The real technical constraint that shaped the design: cropping only works on a *newly selected* file, not the already-live photo, because drawing a cross-origin image onto a `<canvas>` and reading it back out can hit a browser CORS security restriction — a same-origin local file has no such risk.
+
+**Two performance fixes.** (1) The hero photo flashed the local fallback image, then swapped to the real one once Firestore responded — fixed with a `heroLoading` state so nothing renders until the real answer is known, same pattern as `Catalog.jsx`'s loading state. (2) Route-based code-splitting (`lazy()` + `Suspense` in `App.jsx`) so each page ships as its own JS file — confirmed in the build output that `Admin.js` (37.72KB, including the crop library) is no longer part of what a homepage visitor downloads. Image compression (the hero photo is currently ~2.3MB, unoptimized) was identified as the next lever but explicitly deferred by the user for later.
+
 ---
 
 ## Part 5 — Key Decisions & Lessons Log
@@ -205,6 +250,13 @@ louu-the-label/                  (repo root)
 - **Public Firebase config ≠ a secret**: the `apiKey` etc. in `firebase.js` are meant to be public; real security lives in the security rules, not in hiding config values.
 - **New standing rule (Phase 5)**: before writing any code for a request, summarize the main points of what's being built and wait for confirmation, rather than implementing immediately. Applies to actual code changes, not pure Q&A.
 - **UI-hidden ≠ access-controlled**: realized while adding admin notes that a field on a publicly-readable document is publicly readable in full, no matter what the UI renders. Real privacy requires rules enforcement at the data layer (a separate collection with its own auth-only rules), not just leaving something out of a component. See Part 2, "Data-layer privacy vs. UI-only hiding."
+- **Standing rule broadened (Phase 5)**: "layout only, no font/color changes yet" was first stated for the homepage build specifically, then explicitly corrected to apply to the *whole site* — a reminder to double-check the scope of a standing instruction rather than assume it's narrower than intended.
+- **A shared photo, two very different aspect ratios**: a design mockup and its source photo didn't match in shape (wide banner vs. portrait photo). Resolved by asking directly what tradeoff was acceptable rather than guessing — turned out the mockup itself already showed the same crop compromise.
+- **`flex-1` beats a fixed `vh` height** for "fill the rest of the screen below a header" — a hardcoded height guess doesn't adapt to the header's real size and was the direct cause of a visible layout gap.
+- **A component's own margin can fight the page around it**: `Footer.jsx`'s `mt-12` made sense when it always sat in normal document flow, but broke once a page (`Home.jsx`) used it as a flex sibling instead — spacing is often safer left to the page than baked into a shared component.
+- **Vetted `react-easy-crop` properly before installing**: checked npm download counts (2.4M/week), GitHub stars-vs-age (organic growth since 2018, not suspicious), open issue count, last-commit recency, and read the actual `LICENSE` file text (not just the label) to confirm MIT applies cleanly to commercial use — the same rigor as the earlier declined plugin, applied to a case that checked out fine.
+- **CORS can block canvas image reads**: drawing a cross-origin image onto a `<canvas>` and reading pixels back out can be silently blocked by browser security unless the source server sends permissive CORS headers. Designed around this rather than fighting it — the crop tool only ever operates on freshly-selected local files.
+- **A hardcoded asset loads instantly; database-driven content doesn't** — turning the hero photo into admin-editable content traded "instant, but requires a code change to update" for "no code change needed, but has a real network fetch delay (and a sequential one: Firestore for the URL, then Storage for the image itself)." Neither is strictly better; it's what the feature actually needs.
 
 ---
 
@@ -212,7 +264,8 @@ louu-the-label/                  (repo root)
 
 *(This section gets updated as we keep working on this project — check back here for the latest state.)*
 
-- **Current phase**: Phase 5 (polish) in progress. Emulator Suite is set up and confirmed working. Since then, added Edit, Archive/Restore, and admin Notes+expand-panel to `Admin.jsx` (all beyond the original Phase 3 spec) — code done, `firestore.rules` updated with two new collection blocks (`archivedProducts`, `productNotes`), and a `firebase deploy` was run/in progress to push it all live. Taking a break here.
-- **Firestore collections now in play** (was just `products` through Phase 4): `products` (public read, live catalog), `archivedProducts` (auth-only, hidden/archived items), `productNotes` (auth-only, admin reference notes keyed by product ID).
-- **To pick back up next session**: confirm the deploy completed cleanly and that Edit/Archive/Notes all work against real live data (not just the emulator) — test plan was in the last conversation turns.
-- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file), mobile nav check, optional category filter, no auto-scroll to form when clicking Edit on a product further down the list.
+- **Current phase**: Phase 5 (polish), well beyond its original scope. Public site: `Home.jsx` (hero homepage) + `Catalog.jsx` (product grid, moved to `/collection`) + `About.jsx` (placeholder), all sharing `Navbar`/`Footer`. Admin is now tab-based (`Admin.jsx` shell + `AdminProducts.jsx` + `AdminHomepage.jsx`), with Edit/Archive/Restore/Notes on products and a full interactive crop tool for the hero photo. Code-splitting is live (each page/route ships as its own JS chunk, confirmed via build output and network-tab verification). Deployed and confirmed working, including the crop tool and code-splitting.
+- **Firestore collections in play**: `products` (public read), `archivedProducts` (auth-only), `productNotes` (auth-only), `siteSettings` (public read, currently just `hero`). All four have matching `firestore.rules` blocks, deployed and verified.
+- **Mobile nav check**: confirmed done by the user — Navbar has no complex menu to break, `ProductGrid`'s responsive classes from Phase 1 hold up fine.
+- **Not done / deprioritized**: optional category filter (original Phase 5 item, hasn't come up again since the homepage/Admin work took over); image compression for the hero photo (currently ~2.3MB, explicitly deferred by the user "for now").
+- **Open items to revisit eventually**: UID-specific write rule (currently "any authenticated user," fine only while you're the sole account), MFA on the admin account, periodic Firestore backups, orphaned Storage images on product delete (deleting a product doesn't currently delete its uploaded image file — same is true for hero photo replacements now too), no auto-scroll when opening a product's expand panel further down a long list, real sub-routes for Admin tabs if the "resets on tab switch" tradeoff ever becomes annoying, fonts/colors (deliberately untouched site-wide, waiting on the user).
