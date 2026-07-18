@@ -6,7 +6,7 @@ import defaultHomeImage from '../assets/home.jpeg'
 // admin has ever set one, so the page never looks broken.
 function Hero({ imageURL }) {
   return (
-    <div className="relative w-full h-[85vh] overflow-hidden">
+    <div className="relative w-full flex-1 overflow-hidden">
       <img
         src={imageURL || defaultHomeImage}
         alt="Louu the Label"

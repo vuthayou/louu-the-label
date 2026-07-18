@@ -46,6 +46,10 @@ function AdminHomepage() {
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Homepage</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Recommended: landscape orientation, roughly 16:9 to 2:1, at least 1920px wide, and
+        compressed to under ~500KB (JPEG or WebP) for fast loading.
+      </p>
       {heroImageURL && (
         <img
           src={heroImageURL}

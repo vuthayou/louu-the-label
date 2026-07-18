@@ -21,8 +21,10 @@ function Home() {
 
   return (
     <div>
-      <Navbar />
-      <Hero imageURL={heroImageURL} />
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <Hero imageURL={heroImageURL} />
+      </div>
       <Footer />
     </div>
   )
