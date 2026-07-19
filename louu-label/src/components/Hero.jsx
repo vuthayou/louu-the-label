@@ -3,15 +3,19 @@ import defaultHomeImage from '../assets/home.jpeg'
 
 // imageURL comes from Firestore (siteSettings/hero) via Home.jsx, set through
 // Admin's "Homepage" section. Falls back to the local file below until an
-// admin has ever set one, so the page never looks broken.
-function Hero({ imageURL }) {
+// admin has ever set one, so the page never looks broken. sharp=false shows
+// a blurred low-quality placeholder (a tiny base64 thumbnail saved
+// alongside the full photo) while the full photo downloads in the
+// background — scale-110 while blurred hides the soft edge halo the blur
+// filter would otherwise reveal at the container's boundary.
+function Hero({ imageURL, sharp = true }) {
   return (
     <div className="relative w-full flex-1 overflow-hidden">
       <img
         src={imageURL || defaultHomeImage}
         alt="Louu the Label"
         fetchpriority="high"
-        className="absolute inset-0 w-full h-full object-cover object-[75%_15%]"
+        className={`absolute inset-0 w-full h-full object-cover object-[75%_15%] transition-all duration-300 ease-in-out ${sharp ? 'blur-none scale-100' : 'blur-xl scale-110'}`}
       />
       {/* Guarantees the white text stays readable (AA contrast) no matter
           how bright the admin-uploaded photo is — without this, a light

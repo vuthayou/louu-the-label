@@ -11,19 +11,35 @@ import ProductsPreview from '../components/ProductsPreview'
 import LoadingScreen from '../components/LoadingScreen'
 
 function Home() {
-  const [heroImageURL, setHeroImageURL] = useState('')
+  const [heroDisplayURL, setHeroDisplayURL] = useState('')
+  const [heroSharp, setHeroSharp] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       const snapshot = await getDoc(doc(db, 'siteSettings', 'hero'))
-      const url = snapshot.exists() ? snapshot.data().imageURL : ''
-      // Preload whichever photo will actually render — the real one, or the
-      // local fallback if no admin photo is set yet — so nothing shows
-      // until it's fully downloaded, not just once its URL is known.
-      await preloadImages([url || defaultHomeImage])
-      setHeroImageURL(url)
-      setLoading(false)
+      const data = snapshot.exists() ? snapshot.data() : {}
+      const fullURL = data.imageURL || defaultHomeImage
+      const thumbnailURL = data.thumbnailURL || ''
+
+      if (thumbnailURL) {
+        // Reveal immediately with the blurred thumbnail (already in hand,
+        // no extra request needed), then swap to the full photo once it's
+        // downloaded + decoded.
+        setHeroDisplayURL(thumbnailURL)
+        setLoading(false)
+        await preloadImages([fullURL])
+        setHeroDisplayURL(fullURL)
+        setHeroSharp(true)
+      } else {
+        // No thumbnail (old photo, or the local fallback) — fall back to
+        // waiting for the full photo before showing anything, same as
+        // before, so there's still zero pop-in.
+        await preloadImages([fullURL])
+        setHeroDisplayURL(fullURL)
+        setHeroSharp(true)
+        setLoading(false)
+      }
     }
 
     load()
@@ -37,7 +53,7 @@ function Home() {
     <div>
       <div className="h-dvh flex flex-col">
         <Navbar />
-        <Hero imageURL={heroImageURL} />
+        <Hero imageURL={heroDisplayURL} sharp={heroSharp} />
       </div>
       <AboutPreview />
       <ProductsPreview />

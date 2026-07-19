@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
-import { getCroppedImageBlob } from '../utils/cropImage'
+import { getCroppedImageBlob, getCroppedThumbnailDataURL } from '../utils/cropImage'
 import useModalA11y from '../hooks/useModalA11y'
 
 const focusRing =
@@ -91,10 +91,11 @@ function HeroImageManager({
     setError('')
     try {
       const croppedBlob = await getCroppedImageBlob(previewURL, croppedAreaPixels)
+      const thumbnailURL = await getCroppedThumbnailDataURL(previewURL, croppedAreaPixels)
       const imageRef = ref(storage, `${storagePrefix}-${Date.now()}-${imageFile.name}`)
       await uploadBytes(imageRef, croppedBlob)
       const newImageURL = await getDownloadURL(imageRef)
-      await setDoc(doc(db, 'siteSettings', settingId), { imageURL: newImageURL })
+      await setDoc(doc(db, 'siteSettings', settingId), { imageURL: newImageURL, thumbnailURL })
       setImageURL(newImageURL)
       closeCropModal()
     } catch {

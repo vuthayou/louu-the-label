@@ -19,10 +19,13 @@ function Catalog() {
   const [topsPhotos, setTopsPhotos] = useState([])
   const [bottomsDescription, setBottomsDescription] = useState(FALLBACK_DESCRIPTION_BOTTOMS)
   const [bottomsPhotos, setBottomsPhotos] = useState([])
-  const [backgroundPhoto, setBackgroundPhoto] = useState('')
-  // Nothing renders — not even Navbar — until both Firestore fetches AND
-  // every photo they reference (background + all Tops/Bottoms photos) have
-  // fully downloaded, so the whole page appears at once with zero pop-in.
+  const [backgroundDisplayURL, setBackgroundDisplayURL] = useState('')
+  const [backgroundSharp, setBackgroundSharp] = useState(false)
+  // Nothing renders — not even Navbar — until the Firestore fetches AND
+  // every Tops/Bottoms photo has fully downloaded, so that content appears
+  // at once with zero pop-in. The background photo is the one exception: if
+  // it has a thumbnail, it shows blurred immediately and sharpens in behind
+  // the rest, instead of blocking the reveal too.
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,16 +52,37 @@ function Catalog() {
         else if (data.bottomsPhoto) nextBottomsPhotos = [data.bottomsPhoto]
       }
 
-      const nextBackgroundPhoto = backgroundSnapshot.exists() ? backgroundSnapshot.data().imageURL : ''
+      const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
+      const backgroundFullURL = backgroundData.imageURL || ''
+      const backgroundThumbnailURL = backgroundData.thumbnailURL || ''
 
-      await preloadImages([nextBackgroundPhoto, ...nextTopsPhotos, ...nextBottomsPhotos])
+      if (backgroundThumbnailURL) {
+        setBackgroundDisplayURL(backgroundThumbnailURL)
+      }
+
+      // Tops/Bottoms still fully block the reveal. The background's full
+      // photo only blocks it too if there's no thumbnail to show meanwhile.
+      await preloadImages([
+        ...nextTopsPhotos,
+        ...nextBottomsPhotos,
+        ...(backgroundThumbnailURL ? [] : [backgroundFullURL]),
+      ])
 
       setTopsDescription(nextTopsDescription)
       setTopsPhotos(nextTopsPhotos)
       setBottomsDescription(nextBottomsDescription)
       setBottomsPhotos(nextBottomsPhotos)
-      setBackgroundPhoto(nextBackgroundPhoto)
+      if (!backgroundThumbnailURL) {
+        setBackgroundDisplayURL(backgroundFullURL)
+        setBackgroundSharp(true)
+      }
       setLoading(false)
+
+      if (backgroundThumbnailURL) {
+        await preloadImages([backgroundFullURL])
+        setBackgroundDisplayURL(backgroundFullURL)
+        setBackgroundSharp(true)
+      }
     }
 
     load()
@@ -70,12 +94,12 @@ function Catalog() {
 
   return (
     <div className="relative">
-      {backgroundPhoto && (
+      {backgroundDisplayURL && (
         <img
-          src={backgroundPhoto}
+          src={backgroundDisplayURL}
           alt=""
           aria-hidden="true"
-          className="fixed inset-0 w-full h-full object-cover opacity-25 -z-10"
+          className={`fixed inset-0 w-full h-full object-cover opacity-25 -z-10 transition-all duration-300 ease-in-out ${backgroundSharp ? 'blur-none scale-100' : 'blur-xl scale-110'}`}
         />
       )}
       <Navbar />

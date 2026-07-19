@@ -32,3 +32,27 @@ export function getCroppedImageBlob(imageSrc, cropPixels) {
     image.src = imageSrc
   })
 }
+
+// Same crop rectangle as getCroppedImageBlob, but drawn onto a tiny canvas
+// and returned as a base64 data URL instead of a Blob — small enough to
+// store directly as a Firestore string field, so it's available the instant
+// the doc is fetched with zero extra network request. Used as a blurred
+// low-quality placeholder while the full-resolution photo downloads.
+export function getCroppedThumbnailDataURL(imageSrc, cropPixels, maxSize = 24) {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(cropPixels.width, cropPixels.height))
+      const width = Math.round(cropPixels.width * scale)
+      const height = Math.round(cropPixels.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(image, cropPixels.x, cropPixels.y, cropPixels.width, cropPixels.height, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.5))
+    }
+    image.onerror = reject
+    image.src = imageSrc
+  })
+}
