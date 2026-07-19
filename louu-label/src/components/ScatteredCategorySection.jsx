@@ -7,7 +7,7 @@
 // far you have to scroll to reach the next section) constant no matter how
 // many photos an admin uploads, on both desktop and mobile.
 const ROW_HEIGHT = 'h-96'
-const MOBILE_ROW_HEIGHT = 'h-64'
+const MOBILE_ROW_HEIGHT = 'h-[50vh]'
 
 // Only used when no real photos have been uploaded yet, so the section
 // still looks reasonable rather than empty. Colors are paired with fixed
@@ -41,7 +41,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
                   src={item}
                   alt=""
                   loading="lazy"
-                  className={`${MOBILE_ROW_HEIGHT} w-auto flex-shrink-0 shadow-md`}
+                  className={`${MOBILE_ROW_HEIGHT} w-auto max-w-none flex-shrink-0 shadow-md`}
                 />
               ) : (
                 <div
@@ -68,7 +68,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
                 src={item}
                 alt=""
                 loading="lazy"
-                className={`${ROW_HEIGHT} w-auto flex-shrink-0 shadow-md`}
+                className={`${ROW_HEIGHT} w-auto max-w-none flex-shrink-0 shadow-md`}
               />
             ) : (
               <div key={i} className={`${ROW_HEIGHT} ${item.width} flex-shrink-0 shadow-md ${item.color}`} />
