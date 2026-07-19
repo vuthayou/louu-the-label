@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../firebase'
 import { getCroppedImageBlob } from '../utils/cropImage'
+
+const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
+const focusRingText =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
 
 // Reusable admin upload+crop flow for any page's hero-style banner image.
 // settingId: the Firestore doc under siteSettings/ this manages.
@@ -23,6 +28,7 @@ function HeroImageManager({
   const [previewURL, setPreviewURL] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
 
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -51,20 +57,30 @@ function HeroImageManager({
   }
 
   function handleFileChange(e) {
-    setImageFile(e.target.files[0])
+    const file = e.target.files[0]
+    if (!file) return
+    setImageFile(file)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
     setCroppedAreaPixels(null)
+    setError('')
+  }
+
+  function closeCropModal() {
+    setImageFile(null)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const onCropComplete = useCallback((_croppedArea, pixels) => {
     setCroppedAreaPixels(pixels)
   }, [])
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  async function handleConfirmCrop() {
     if (!imageFile || !croppedAreaPixels) {
-      setError('Please choose an image and adjust the crop.')
+      setError('Please adjust the crop.')
       return
     }
     setUploading(true)
@@ -76,9 +92,7 @@ function HeroImageManager({
       const newImageURL = await getDownloadURL(imageRef)
       await setDoc(doc(db, 'siteSettings', settingId), { imageURL: newImageURL })
       setImageURL(newImageURL)
-      setImageFile(null)
-      setCroppedAreaPixels(null)
-      e.target.reset()
+      closeCropModal()
     } catch {
       setError('Update failed. Please try again.')
     } finally {
@@ -94,16 +108,35 @@ function HeroImageManager({
         compressed to under ~500KB (JPEG or WebP) for fast loading.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md">
+      <div className="flex flex-col gap-4 max-w-md">
         <input
+          ref={fileInputRef}
           type="file"
           accept="image/*"
           onChange={handleFileChange}
           className="border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
         />
 
-        {previewURL ? (
+        {imageURL && (
           <div>
+            <p className="text-sm text-gray-500 mb-2">
+              Current live photo (choose a new file above to reposition/crop):
+            </p>
+            <div className="w-full aspect-video border border-gray-300 rounded overflow-hidden bg-gray-100">
+              <img
+                src={imageURL}
+                alt={`Current ${label} photo`}
+                className={`w-full h-full object-cover ${objectPositionClass}`}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {previewURL && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg bg-white rounded shadow-lg p-6">
+            <h3 className="text-lg font-semibold mb-4">Update {label.toLowerCase()} photo</h3>
             <p className="text-sm text-gray-500 mb-2">
               Drag to move, scroll or pinch to zoom — this is exactly what will show live:
             </p>
@@ -130,33 +163,27 @@ function HeroImageManager({
                 className="flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 rounded-sm"
               />
             </label>
-          </div>
-        ) : (
-          imageURL && (
-            <div>
-              <p className="text-sm text-gray-500 mb-2">
-                Current live photo (choose a new file above to reposition/crop):
-              </p>
-              <div className="w-full aspect-video border border-gray-300 rounded overflow-hidden bg-gray-100">
-                <img
-                  src={imageURL}
-                  alt={`Current ${label} photo`}
-                  className={`w-full h-full object-cover ${objectPositionClass}`}
-                />
-              </div>
+            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            <div className="flex items-center gap-4 mt-4">
+              <button
+                type="button"
+                onClick={handleConfirmCrop}
+                disabled={uploading}
+                className={`bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
+              >
+                {uploading ? 'Uploading...' : 'Confirm'}
+              </button>
+              <button
+                type="button"
+                onClick={closeCropModal}
+                className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
+              >
+                Cancel
+              </button>
             </div>
-          )
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={uploading}
-          className="bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
-        >
-          {uploading ? 'Uploading...' : `Update ${label.toLowerCase()} photo`}
-        </button>
-      </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,33 +5,31 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../firebase'
 import { getCroppedImageBlob } from '../utils/cropImage'
 import HeroImageManager from '../components/HeroImageManager'
+import PhotoGridManager from '../components/PhotoGridManager'
 
 const inputFocus = 'focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900'
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
 const focusRingText =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
-// For a hidden file input wrapped in a <label> — the input is the real focus
-// target, so the visible ring has to key off :focus-within on the label.
-const focusWithinRing = 'focus-within:ring-2 focus-within:ring-gray-900 focus-within:ring-offset-2'
 
-const MAX_TOPS_PHOTOS = 8
+const MAX_PHOTOS_PER_CATEGORY = 8
 
 function AdminCollectionHero() {
   const [topsDescription, setTopsDescription] = useState('')
   const [topsPhotos, setTopsPhotos] = useState([])
   const [bottomsDescription, setBottomsDescription] = useState('')
-  const [bottomsPhoto, setBottomsPhoto] = useState('')
+  const [bottomsPhotos, setBottomsPhotos] = useState([])
 
   const [descSaving, setDescSaving] = useState(false)
   const [descSaved, setDescSaved] = useState(false)
-  const [uploadingSlot, setUploadingSlot] = useState(null) // 'tops-0' | 'bottoms' | null
+  const [uploadingSlot, setUploadingSlot] = useState(null) // 'tops-0' | 'bottoms-0' | null
 
-  // Tops crop popup state — opens right after a file is picked for a slot.
-  // cropAspect is computed from that photo's own natural dimensions (not a
-  // fixed ratio) so each Tops photo keeps its own proportions, same as the
-  // scattered row on the live page.
-  const [cropTarget, setCropTarget] = useState(null) // index of the slot being edited, or null when closed
+  // Shared crop popup state for both Tops and Bottoms — opens right after a
+  // file is picked. cropAspect is always computed from that photo's own
+  // natural dimensions (not a fixed ratio), so both categories keep the same
+  // "different widths, same height" row effect on the live page.
+  const [cropTarget, setCropTarget] = useState(null) // { category: 'tops' | 'bottoms', index: number } | null
   const [cropFile, setCropFile] = useState(null)
   const [cropPreviewURL, setCropPreviewURL] = useState('')
   const [cropAspect, setCropAspect] = useState(null)
@@ -47,7 +45,10 @@ function AdminCollectionHero() {
         setTopsDescription(data.topsDescription || '')
         setTopsPhotos(data.topsPhotos || [])
         setBottomsDescription(data.bottomsDescription || '')
-        setBottomsPhoto(data.bottomsPhoto || '')
+        // bottomsPhoto (singular) was the old single-photo field — fold it
+        // into the new array so a photo uploaded before this change doesn't
+        // just disappear.
+        setBottomsPhotos(data.bottomsPhotos || (data.bottomsPhoto ? [data.bottomsPhoto] : []))
       }
     }
     fetchLayout()
@@ -71,6 +72,8 @@ function AdminCollectionHero() {
     setCroppedAreaPixels(pixels)
   }, [])
 
+  const cropUploadingKey = cropTarget && `${cropTarget.category}-${cropTarget.index}`
+
   async function handleSaveDescriptions(e) {
     e.preventDefault()
     setDescSaving(true)
@@ -84,9 +87,9 @@ function AdminCollectionHero() {
     setDescSaved(true)
   }
 
-  function openCropForSlot(index, file) {
+  function openCropForSlot(category, index, file) {
     if (!file) return
-    setCropTarget(index)
+    setCropTarget({ category, index })
     setCropFile(file)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
@@ -102,33 +105,26 @@ function AdminCollectionHero() {
   }
 
   async function handleConfirmCrop() {
-    if (!cropFile || !croppedAreaPixels || cropTarget === null) return
-    const index = cropTarget
-    setUploadingSlot(`tops-${index}`)
+    if (!cropFile || !croppedAreaPixels || !cropTarget) return
+    const { category, index } = cropTarget
+    setUploadingSlot(`${category}-${index}`)
     try {
       const croppedBlob = await getCroppedImageBlob(cropPreviewURL, croppedAreaPixels)
-      const imageRef = ref(storage, `site/collection-tops-${index}-${Date.now()}-${cropFile.name}`)
+      const imageRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-${cropFile.name}`)
       await uploadBytes(imageRef, croppedBlob)
       const url = await getDownloadURL(imageRef)
-      const nextPhotos = [...topsPhotos]
-      nextPhotos[index] = url
-      setTopsPhotos(nextPhotos)
-      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
+      if (category === 'tops') {
+        const nextPhotos = [...topsPhotos]
+        nextPhotos[index] = url
+        setTopsPhotos(nextPhotos)
+        await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
+      } else {
+        const nextPhotos = [...bottomsPhotos]
+        nextPhotos[index] = url
+        setBottomsPhotos(nextPhotos)
+        await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhotos: nextPhotos }, { merge: true })
+      }
       closeCropModal()
-    } finally {
-      setUploadingSlot(null)
-    }
-  }
-
-  async function handleUploadBottomsPhoto(file) {
-    if (!file) return
-    setUploadingSlot('bottoms')
-    try {
-      const imageRef = ref(storage, `site/collection-bottoms-${Date.now()}-${file.name}`)
-      await uploadBytes(imageRef, file)
-      const url = await getDownloadURL(imageRef)
-      setBottomsPhoto(url)
-      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhoto: url }, { merge: true })
     } finally {
       setUploadingSlot(null)
     }
@@ -177,57 +173,41 @@ function AdminCollectionHero() {
       <div className="mt-12">
         <h2 className="text-lg font-semibold mb-4">Tops Photos</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Add up to {MAX_TOPS_PHOTOS} photos for the scattered layout, one at a time. Click an
+          Add up to {MAX_PHOTOS_PER_CATEGORY} photos for the row layout, one at a time. Click an
           existing photo to replace it. Each photo opens a crop/zoom popup that keeps that
           photo's own proportions, so widths still vary in the row.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {topsPhotos.map((photoUrl, i) =>
-            photoUrl ? (
-              <label
-                key={i}
-                className={`relative block aspect-square cursor-pointer group ${focusWithinRing}`}
-              >
-                <img src={photoUrl} alt={`Tops ${i + 1}`} className="w-full h-full object-cover" />
-                <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white text-sm opacity-0 transition-all duration-300 ease-in-out group-hover:bg-black/40 group-hover:opacity-100">
-                  {uploadingSlot === `tops-${i}` ? 'Uploading...' : 'Replace'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    openCropForSlot(i, e.target.files[0])
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-            ) : null,
-          )}
-          {topsPhotos.filter(Boolean).length < MAX_TOPS_PHOTOS && (
-            <label
-              className={`aspect-square flex items-center justify-center border border-dashed border-gray-300 text-gray-400 text-sm cursor-pointer transition-all duration-300 ease-in-out hover:border-gray-500 hover:text-gray-500 ${focusWithinRing}`}
-            >
-              {uploadingSlot === `tops-${topsPhotos.filter(Boolean).length}` ? 'Uploading...' : '+ Add photo'}
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(e) => {
-                  openCropForSlot(topsPhotos.filter(Boolean).length, e.target.files[0])
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          )}
-        </div>
+        <PhotoGridManager
+          photos={topsPhotos}
+          maxPhotos={MAX_PHOTOS_PER_CATEGORY}
+          keyPrefix="tops"
+          uploadingSlot={uploadingSlot}
+          onSelectFile={(index, file) => openCropForSlot('tops', index, file)}
+        />
       </div>
 
-      {cropTarget !== null && (
+      <div className="mt-12">
+        <h2 className="text-lg font-semibold mb-4">Bottoms Photos</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Same as Tops — add up to {MAX_PHOTOS_PER_CATEGORY} photos, one at a time, each keeping
+          its own proportions in the row.
+        </p>
+        <PhotoGridManager
+          photos={bottomsPhotos}
+          maxPhotos={MAX_PHOTOS_PER_CATEGORY}
+          keyPrefix="bottoms"
+          uploadingSlot={uploadingSlot}
+          onSelectFile={(index, file) => openCropForSlot('bottoms', index, file)}
+        />
+      </div>
+
+      {cropTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg bg-white rounded shadow-lg p-6">
             <h3 className="text-lg font-semibold mb-4">
-              {topsPhotos[cropTarget] ? 'Replace photo' : 'Add photo'}
+              {(cropTarget.category === 'tops' ? topsPhotos : bottomsPhotos)[cropTarget.index]
+                ? 'Replace photo'
+                : 'Add photo'}
             </h3>
             {cropAspect ? (
               <>
@@ -266,10 +246,10 @@ function AdminCollectionHero() {
               <button
                 type="button"
                 onClick={handleConfirmCrop}
-                disabled={!cropAspect || uploadingSlot === `tops-${cropTarget}`}
+                disabled={!cropAspect || uploadingSlot === cropUploadingKey}
                 className={`bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
               >
-                {uploadingSlot === `tops-${cropTarget}` ? 'Uploading...' : 'Confirm'}
+                {uploadingSlot === cropUploadingKey ? 'Uploading...' : 'Confirm'}
               </button>
               <button
                 type="button"
@@ -282,24 +262,6 @@ function AdminCollectionHero() {
           </div>
         </div>
       )}
-
-      <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-4">Bottoms Photo</h2>
-        {bottomsPhoto && (
-          <img
-            src={bottomsPhoto}
-            alt="Bottoms"
-            className="w-full max-w-xs aspect-[4/5] object-cover mb-2"
-          />
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleUploadBottomsPhoto(e.target.files[0])}
-          className={`text-sm max-w-xs border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        {uploadingSlot === 'bottoms' && <p className="text-xs text-gray-500 mt-2">Uploading...</p>}
-      </div>
     </div>
   )
 }

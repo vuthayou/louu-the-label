@@ -3,7 +3,6 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import CategoryInfoSection from '../components/CategoryInfoSection'
 import ScatteredCategorySection from '../components/ScatteredCategorySection'
 
 const FALLBACK_DESCRIPTION_TOPS =
@@ -17,7 +16,7 @@ function Catalog() {
   const [topsDescription, setTopsDescription] = useState(FALLBACK_DESCRIPTION_TOPS)
   const [topsPhotos, setTopsPhotos] = useState([])
   const [bottomsDescription, setBottomsDescription] = useState(FALLBACK_DESCRIPTION_BOTTOMS)
-  const [bottomsPhoto, setBottomsPhoto] = useState('')
+  const [bottomsPhotos, setBottomsPhotos] = useState([])
   const [backgroundPhoto, setBackgroundPhoto] = useState('')
 
   useEffect(() => {
@@ -28,7 +27,11 @@ function Catalog() {
         if (data.topsDescription) setTopsDescription(data.topsDescription)
         if (data.topsPhotos) setTopsPhotos(data.topsPhotos)
         if (data.bottomsDescription) setBottomsDescription(data.bottomsDescription)
-        if (data.bottomsPhoto) setBottomsPhoto(data.bottomsPhoto)
+        // bottomsPhotos is the current field; bottomsPhoto (singular) was the
+        // old single-photo field, kept as a fallback so content saved before
+        // this change still shows up.
+        if (data.bottomsPhotos) setBottomsPhotos(data.bottomsPhotos)
+        else if (data.bottomsPhoto) setBottomsPhotos([data.bottomsPhoto])
       }
     }
 
@@ -55,12 +58,7 @@ function Catalog() {
       )}
       <Navbar />
       <ScatteredCategorySection title="Tops" description={topsDescription} photos={topsPhotos} />
-      <CategoryInfoSection
-        title="Bottoms"
-        description={bottomsDescription}
-        photo={bottomsPhoto}
-        imageFirst
-      />
+      <ScatteredCategorySection title="Bottoms" description={bottomsDescription} photos={bottomsPhotos} />
       <Footer />
     </div>
   )
