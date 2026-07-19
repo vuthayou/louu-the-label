@@ -18,6 +18,13 @@ function Catalog() {
   const [bottomsDescription, setBottomsDescription] = useState(FALLBACK_DESCRIPTION_BOTTOMS)
   const [bottomsPhotos, setBottomsPhotos] = useState([])
   const [backgroundPhoto, setBackgroundPhoto] = useState('')
+  // Waits for both fetches before showing the real sections, rather than
+  // flashing the fallback placeholder text/colors and then swapping —
+  // same fix already applied to the Home page's hero photo. The background
+  // photo isn't gated by this at all, so Navbar + background show first,
+  // and the placeholder below stays transparent so it doesn't cover the
+  // background photo while the Tops/Bottoms content is still loading.
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchLayout() {
@@ -42,8 +49,7 @@ function Catalog() {
       }
     }
 
-    fetchLayout()
-    fetchBackground()
+    Promise.all([fetchLayout(), fetchBackground()]).then(() => setLoading(false))
   }, [])
 
   return (
@@ -57,8 +63,14 @@ function Catalog() {
         />
       )}
       <Navbar />
-      <ScatteredCategorySection title="Tops" description={topsDescription} photos={topsPhotos} />
-      <ScatteredCategorySection title="Bottoms" description={bottomsDescription} photos={bottomsPhotos} />
+      {loading ? (
+        <div className="min-h-svh" />
+      ) : (
+        <>
+          <ScatteredCategorySection title="Tops" description={topsDescription} photos={topsPhotos} />
+          <ScatteredCategorySection title="Bottoms" description={bottomsDescription} photos={bottomsPhotos} />
+        </>
+      )}
       <Footer />
     </div>
   )
