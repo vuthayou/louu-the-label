@@ -4,7 +4,12 @@ import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
-import { getCroppedImageBlob, getCroppedThumbnailDataURL } from '../utils/cropImage'
+import {
+  getCroppedImageBlob,
+  getCroppedThumbnailDataURL,
+  SMALL_PHOTO_MAX_SIZE,
+  LARGE_PHOTO_MAX_SIZE,
+} from '../utils/cropImage'
 import useModalA11y from '../hooks/useModalA11y'
 
 const focusRing =
@@ -90,12 +95,23 @@ function HeroImageManager({
     setUploading(true)
     setError('')
     try {
-      const croppedBlob = await getCroppedImageBlob(previewURL, croppedAreaPixels)
-      const thumbnailURL = await getCroppedThumbnailDataURL(previewURL, croppedAreaPixels)
-      const imageRef = ref(storage, `${storagePrefix}-${Date.now()}-${imageFile.name}`)
-      await uploadBytes(imageRef, croppedBlob)
-      const newImageURL = await getDownloadURL(imageRef)
-      await setDoc(doc(db, 'siteSettings', settingId), { imageURL: newImageURL, thumbnailURL })
+      const [largeBlob, smallBlob, thumbnailURL] = await Promise.all([
+        getCroppedImageBlob(previewURL, croppedAreaPixels, LARGE_PHOTO_MAX_SIZE),
+        getCroppedImageBlob(previewURL, croppedAreaPixels, SMALL_PHOTO_MAX_SIZE),
+        getCroppedThumbnailDataURL(previewURL, croppedAreaPixels),
+      ])
+      const largeRef = ref(storage, `${storagePrefix}-${Date.now()}-large-${imageFile.name}`)
+      const smallRef = ref(storage, `${storagePrefix}-${Date.now()}-small-${imageFile.name}`)
+      await Promise.all([uploadBytes(largeRef, largeBlob), uploadBytes(smallRef, smallBlob)])
+      const [newImageURL, newSmallImageURL] = await Promise.all([
+        getDownloadURL(largeRef),
+        getDownloadURL(smallRef),
+      ])
+      await setDoc(doc(db, 'siteSettings', settingId), {
+        imageURL: newImageURL,
+        smallImageURL: newSmallImageURL,
+        thumbnailURL,
+      })
       setImageURL(newImageURL)
       closeCropModal()
     } catch {

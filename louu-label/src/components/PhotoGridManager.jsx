@@ -1,3 +1,5 @@
+import { getPhotoURL } from '../utils/photoUrl'
+
 // For a hidden file input wrapped in a <label> — the input is the real focus
 // target, so the visible ring has to key off :focus-within on the label.
 const focusWithinRing = 'focus-within:ring-2 focus-within:ring-gray-900 focus-within:ring-offset-2'
@@ -19,7 +21,11 @@ function PhotoGridManager({ photos, maxPhotos, keyPrefix, uploadingSlot, onSelec
             key={i}
             className={`relative block aspect-square cursor-pointer group ${focusWithinRing}`}
           >
-            <img src={photoUrl} alt={`${keyPrefix} ${i + 1}`} className="w-full h-full object-cover" />
+            <img
+              src={getPhotoURL(photoUrl, 'small')}
+              alt={`${keyPrefix} ${i + 1}`}
+              className="w-full h-full object-cover"
+            />
             <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white text-sm opacity-0 transition-all duration-300 ease-in-out group-hover:bg-black/40 group-hover:opacity-100">
               {uploadingSlot === `${keyPrefix}-${i}` ? 'Uploading...' : 'Replace'}
             </span>

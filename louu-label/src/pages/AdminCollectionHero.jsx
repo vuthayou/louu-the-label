@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
-import { getCroppedImageBlob } from '../utils/cropImage'
+import { getCroppedImageBlob, SMALL_PHOTO_MAX_SIZE, LARGE_PHOTO_MAX_SIZE } from '../utils/cropImage'
 import HeroImageManager from '../components/HeroImageManager'
 import PhotoGridManager from '../components/PhotoGridManager'
 import useModalA11y from '../hooks/useModalA11y'
@@ -113,18 +113,23 @@ function AdminCollectionHero() {
     const { category, index } = cropTarget
     setUploadingSlot(`${category}-${index}`)
     try {
-      const croppedBlob = await getCroppedImageBlob(cropPreviewURL, croppedAreaPixels)
-      const imageRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-${cropFile.name}`)
-      await uploadBytes(imageRef, croppedBlob)
-      const url = await getDownloadURL(imageRef)
+      const [smallBlob, largeBlob] = await Promise.all([
+        getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, SMALL_PHOTO_MAX_SIZE),
+        getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, LARGE_PHOTO_MAX_SIZE),
+      ])
+      const smallRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-small-${cropFile.name}`)
+      const largeRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-large-${cropFile.name}`)
+      await Promise.all([uploadBytes(smallRef, smallBlob), uploadBytes(largeRef, largeBlob)])
+      const [small, large] = await Promise.all([getDownloadURL(smallRef), getDownloadURL(largeRef)])
+      const photoEntry = { small, large }
       if (category === 'tops') {
         const nextPhotos = [...topsPhotos]
-        nextPhotos[index] = url
+        nextPhotos[index] = photoEntry
         setTopsPhotos(nextPhotos)
         await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
       } else {
         const nextPhotos = [...bottomsPhotos]
-        nextPhotos[index] = url
+        nextPhotos[index] = photoEntry
         setBottomsPhotos(nextPhotos)
         await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhotos: nextPhotos }, { merge: true })
       }

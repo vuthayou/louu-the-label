@@ -1,3 +1,5 @@
+import { getPhotoURL } from '../utils/photoUrl'
+
 // A single-row photo layout for a category — title card + photos all share
 // one fixed height, but each keeps its own natural width. For real photos
 // that width comes from the image's intrinsic aspect ratio (height fixed,
@@ -38,7 +40,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
               hasRealPhotos ? (
                 <img
                   key={i}
-                  src={item}
+                  src={getPhotoURL(item, 'small')}
                   alt=""
                   loading="lazy"
                   className={`${MOBILE_ROW_HEIGHT} w-auto max-w-none flex-shrink-0 shadow-md`}
@@ -65,7 +67,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
             hasRealPhotos ? (
               <img
                 key={i}
-                src={item}
+                src={getPhotoURL(item, 'large')}
                 alt=""
                 loading="lazy"
                 className={`${ROW_HEIGHT} w-auto max-w-none flex-shrink-0 shadow-md`}

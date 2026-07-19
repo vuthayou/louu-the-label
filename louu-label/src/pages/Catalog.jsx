@@ -48,7 +48,13 @@ function Catalog() {
       }
 
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
-      const backgroundFullURL = backgroundData.imageURL || ''
+      // Below Tailwind's md breakpoint (768px, same one used site-wide),
+      // prefer the smaller variant if one was generated.
+      const isMobileViewport = window.innerWidth < 768
+      const backgroundFullURL =
+        (isMobileViewport ? backgroundData.smallImageURL : backgroundData.imageURL) ||
+        backgroundData.imageURL ||
+        ''
       const backgroundThumbnailURL = backgroundData.thumbnailURL || ''
 
       if (backgroundThumbnailURL) {

@@ -24,7 +24,11 @@ function Home() {
     async function load() {
       const snapshot = await getDoc(doc(db, 'siteSettings', 'hero'))
       const data = snapshot.exists() ? snapshot.data() : {}
-      const fullURL = data.imageURL || defaultHomeImage
+      // Below Tailwind's md breakpoint (768px, same one used site-wide),
+      // prefer the smaller variant if one was generated — a phone doesn't
+      // need to download the full desktop-resolution photo.
+      const isMobileViewport = window.innerWidth < 768
+      const fullURL = (isMobileViewport ? data.smallImageURL : data.imageURL) || data.imageURL || defaultHomeImage
       const thumbnailURL = data.thumbnailURL || ''
 
       if (thumbnailURL) {
