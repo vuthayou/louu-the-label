@@ -11,8 +11,13 @@ import ProductsPreview from '../components/ProductsPreview'
 import LoadingScreen from '../components/LoadingScreen'
 
 function Home() {
-  const [heroDisplayURL, setHeroDisplayURL] = useState('')
-  const [heroSharp, setHeroSharp] = useState(false)
+  // Starts as the local fallback, shown at full sharpness — a real,
+  // complete image, not a degraded placeholder, so no blur applies to it.
+  const [heroDisplayURL, setHeroDisplayURL] = useState(defaultHomeImage)
+  const [heroSharp, setHeroSharp] = useState(true)
+  // Only gates the page on the Firestore fetch itself (fast, low-risk) —
+  // never on images. Images load in the background and swap in whenever
+  // they're ready, so one slow/broken photo can't hang the whole page.
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,23 +28,19 @@ function Home() {
       const thumbnailURL = data.thumbnailURL || ''
 
       if (thumbnailURL) {
-        // Reveal immediately with the blurred thumbnail (already in hand,
-        // no extra request needed), then swap to the full photo once it's
-        // downloaded + decoded.
+        // Blurred thumbnail is already in hand (embedded in this same doc,
+        // no extra request) — show it right away.
         setHeroDisplayURL(thumbnailURL)
-        setLoading(false)
-        await preloadImages([fullURL])
-        setHeroDisplayURL(fullURL)
-        setHeroSharp(true)
-      } else {
-        // No thumbnail (old photo, or the local fallback) — fall back to
-        // waiting for the full photo before showing anything, same as
-        // before, so there's still zero pop-in.
-        await preloadImages([fullURL])
-        setHeroDisplayURL(fullURL)
-        setHeroSharp(true)
-        setLoading(false)
+        setHeroSharp(false)
       }
+      setLoading(false)
+
+      // Full photo loads in the background and swaps in whenever it's
+      // ready — doesn't block the page from showing in the meantime.
+      preloadImages([fullURL]).then(() => {
+        setHeroDisplayURL(fullURL)
+        setHeroSharp(true)
+      })
     }
 
     load()

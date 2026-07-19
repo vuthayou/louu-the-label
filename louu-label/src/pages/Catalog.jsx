@@ -21,11 +21,11 @@ function Catalog() {
   const [bottomsPhotos, setBottomsPhotos] = useState([])
   const [backgroundDisplayURL, setBackgroundDisplayURL] = useState('')
   const [backgroundSharp, setBackgroundSharp] = useState(false)
-  // Nothing renders — not even Navbar — until the Firestore fetches AND
-  // every Tops/Bottoms photo has fully downloaded, so that content appears
-  // at once with zero pop-in. The background photo is the one exception: if
-  // it has a thumbnail, it shows blurred immediately and sharpens in behind
-  // the rest, instead of blocking the reveal too.
+  // Only gates the page on the Firestore fetches themselves (fast,
+  // low-risk) — never on the Tops/Bottoms photos or the background photo.
+  // Those load in the background and pop in as they're ready, the normal
+  // way browsers handle images, so one slow/broken photo can't hang the
+  // whole page.
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,21 +35,16 @@ function Catalog() {
         getDoc(doc(db, 'siteSettings', 'collectionHero')),
       ])
 
-      let nextTopsDescription = FALLBACK_DESCRIPTION_TOPS
-      let nextTopsPhotos = []
-      let nextBottomsDescription = FALLBACK_DESCRIPTION_BOTTOMS
-      let nextBottomsPhotos = []
-
       if (layoutSnapshot.exists()) {
         const data = layoutSnapshot.data()
-        if (data.topsDescription) nextTopsDescription = data.topsDescription
-        if (data.topsPhotos) nextTopsPhotos = data.topsPhotos
-        if (data.bottomsDescription) nextBottomsDescription = data.bottomsDescription
+        if (data.topsDescription) setTopsDescription(data.topsDescription)
+        if (data.topsPhotos) setTopsPhotos(data.topsPhotos)
+        if (data.bottomsDescription) setBottomsDescription(data.bottomsDescription)
         // bottomsPhotos is the current field; bottomsPhoto (singular) was the
         // old single-photo field, kept as a fallback so content saved before
         // this change still shows up.
-        if (data.bottomsPhotos) nextBottomsPhotos = data.bottomsPhotos
-        else if (data.bottomsPhoto) nextBottomsPhotos = [data.bottomsPhoto]
+        if (data.bottomsPhotos) setBottomsPhotos(data.bottomsPhotos)
+        else if (data.bottomsPhoto) setBottomsPhotos([data.bottomsPhoto])
       }
 
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
@@ -60,28 +55,15 @@ function Catalog() {
         setBackgroundDisplayURL(backgroundThumbnailURL)
       }
 
-      // Tops/Bottoms still fully block the reveal. The background's full
-      // photo only blocks it too if there's no thumbnail to show meanwhile.
-      await preloadImages([
-        ...nextTopsPhotos,
-        ...nextBottomsPhotos,
-        ...(backgroundThumbnailURL ? [] : [backgroundFullURL]),
-      ])
-
-      setTopsDescription(nextTopsDescription)
-      setTopsPhotos(nextTopsPhotos)
-      setBottomsDescription(nextBottomsDescription)
-      setBottomsPhotos(nextBottomsPhotos)
-      if (!backgroundThumbnailURL) {
-        setBackgroundDisplayURL(backgroundFullURL)
-        setBackgroundSharp(true)
-      }
       setLoading(false)
 
-      if (backgroundThumbnailURL) {
-        await preloadImages([backgroundFullURL])
-        setBackgroundDisplayURL(backgroundFullURL)
-        setBackgroundSharp(true)
+      // Full background photo loads in the background and swaps in
+      // whenever it's ready — doesn't block the page from showing.
+      if (backgroundFullURL) {
+        preloadImages([backgroundFullURL]).then(() => {
+          setBackgroundDisplayURL(backgroundFullURL)
+          setBackgroundSharp(true)
+        })
       }
     }
 
