@@ -9,7 +9,7 @@ const focusRingText =
 // on a second full "screen," matching the Hero's one-section-per-screen feel.
 function AboutPreview() {
   return (
-    <section className="min-h-screen flex items-center">
+    <section className="min-h-svh flex items-center">
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-center">
         <div>
           <h2 className="text-2xl md:text-3xl font-semibold mb-4">About Us</h2>

@@ -25,7 +25,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
   const items = hasRealPhotos ? realPhotos : PLACEHOLDERS
 
   return (
-    <section className="min-h-screen flex items-center pt-16 pb-24">
+    <section className="min-h-svh flex items-center pt-16 pb-24">
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 w-full">
         {/* Mobile: title block, then photos in their own horizontally-scrolling row */}
         <div className="flex flex-col gap-8 md:hidden">

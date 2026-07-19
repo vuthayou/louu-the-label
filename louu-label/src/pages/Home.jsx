@@ -25,7 +25,7 @@ function Home() {
 
   return (
     <div>
-      <div className="min-h-screen flex flex-col">
+      <div className="h-dvh flex flex-col">
         <Navbar />
         {/* Wait for the real photo before showing anything, rather than
             flashing the local fallback and then swapping to it. */}

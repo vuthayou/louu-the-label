@@ -10,7 +10,7 @@ const focusRingText =
 // (image first here) so the two sections don't look identical on scroll.
 function ProductsPreview() {
   return (
-    <section className="min-h-screen flex items-center">
+    <section className="min-h-svh flex items-center">
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-center">
         <div className="aspect-square md:aspect-[4/5] bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-sm order-2 md:order-1">
           Image placeholder
