@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { preloadImages } from '../utils/preloadImages'
+import { readCache, writeCache } from '../utils/cache'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import ScatteredCategorySection from '../components/ScatteredCategorySection'
@@ -12,21 +13,59 @@ const FALLBACK_DESCRIPTION_TOPS =
 const FALLBACK_DESCRIPTION_BOTTOMS =
   'Placeholder introduction text — a short teaser about the Bottoms collection goes here.'
 
+// Normalizes a raw collectionLayout doc (or null, if none cached/saved yet)
+// into the four values the page actually needs — used for both cached and
+// freshly-fetched data so the fallback/migration logic only lives once.
+function deriveLayout(data) {
+  let topsDescription = FALLBACK_DESCRIPTION_TOPS
+  let topsPhotos = []
+  let bottomsDescription = FALLBACK_DESCRIPTION_BOTTOMS
+  let bottomsPhotos = []
+  if (data) {
+    if (data.topsDescription) topsDescription = data.topsDescription
+    if (data.topsPhotos) topsPhotos = data.topsPhotos
+    if (data.bottomsDescription) bottomsDescription = data.bottomsDescription
+    // bottomsPhotos is the current field; bottomsPhoto (singular) was the
+    // old single-photo field, kept as a fallback so content saved before
+    // this change still shows up.
+    if (data.bottomsPhotos) bottomsPhotos = data.bottomsPhotos
+    else if (data.bottomsPhoto) bottomsPhotos = [data.bottomsPhoto]
+  }
+  return { topsDescription, topsPhotos, bottomsDescription, bottomsPhotos }
+}
+
+// Below Tailwind's md breakpoint (768px, same one used site-wide), prefer
+// the smaller variant if one was generated.
+function pickBackgroundURL(data) {
+  const isMobileViewport = window.innerWidth < 768
+  return (isMobileViewport ? data.smallImageURL : data.imageURL) || data.imageURL || ''
+}
+
 function Catalog() {
-  // All admin-controlled (Admin > Collection tab). Falls back to placeholder
-  // text/empty photos until the admin has ever saved real content.
-  const [topsDescription, setTopsDescription] = useState(FALLBACK_DESCRIPTION_TOPS)
-  const [topsPhotos, setTopsPhotos] = useState([])
-  const [bottomsDescription, setBottomsDescription] = useState(FALLBACK_DESCRIPTION_BOTTOMS)
-  const [bottomsPhotos, setBottomsPhotos] = useState([])
-  const [backgroundDisplayURL, setBackgroundDisplayURL] = useState('')
-  const [backgroundSharp, setBackgroundSharp] = useState(false)
-  // Only gates the page on the Firestore fetches themselves (fast,
-  // low-risk) — never on the Tops/Bottoms photos or the background photo.
-  // Those load in the background and pop in as they're ready, the normal
-  // way browsers handle images, so one slow/broken photo can't hang the
-  // whole page.
-  const [loading, setLoading] = useState(true)
+  // Read once per mount (not module scope — a module stays loaded across
+  // client-side navigations within the same visit, so a module-level read
+  // would go stale after the first load).
+  const cachedLayout = readCache('collectionLayout')
+  const cachedBackground = readCache('collectionHero')
+  const initialLayout = deriveLayout(cachedLayout)
+
+  // On a repeat visit, start directly from the last-known content instead
+  // of placeholders — skips the loading screen entirely, since we already
+  // have real data to show. A fresh fetch still runs below and corrects
+  // anything if it's changed since last time.
+  const [topsDescription, setTopsDescription] = useState(initialLayout.topsDescription)
+  const [topsPhotos, setTopsPhotos] = useState(initialLayout.topsPhotos)
+  const [bottomsDescription, setBottomsDescription] = useState(initialLayout.bottomsDescription)
+  const [bottomsPhotos, setBottomsPhotos] = useState(initialLayout.bottomsPhotos)
+  const [backgroundDisplayURL, setBackgroundDisplayURL] = useState(() =>
+    cachedBackground ? cachedBackground.thumbnailURL || '' : '',
+  )
+  const [backgroundSharp, setBackgroundSharp] = useState(() => !(cachedBackground && cachedBackground.thumbnailURL))
+  // Gated on the layout cache specifically — that's the content
+  // (title/description/photos) that actually defines "is there something
+  // real to show yet." The background photo has always been a secondary,
+  // non-blocking enhancement.
+  const [loading, setLoading] = useState(() => !cachedLayout)
 
   useEffect(() => {
     async function load() {
@@ -35,30 +74,20 @@ function Catalog() {
         getDoc(doc(db, 'siteSettings', 'collectionHero')),
       ])
 
-      if (layoutSnapshot.exists()) {
-        const data = layoutSnapshot.data()
-        if (data.topsDescription) setTopsDescription(data.topsDescription)
-        if (data.topsPhotos) setTopsPhotos(data.topsPhotos)
-        if (data.bottomsDescription) setBottomsDescription(data.bottomsDescription)
-        // bottomsPhotos is the current field; bottomsPhoto (singular) was the
-        // old single-photo field, kept as a fallback so content saved before
-        // this change still shows up.
-        if (data.bottomsPhotos) setBottomsPhotos(data.bottomsPhotos)
-        else if (data.bottomsPhoto) setBottomsPhotos([data.bottomsPhoto])
-      }
+      const layoutData = layoutSnapshot.exists() ? layoutSnapshot.data() : null
+      writeCache('collectionLayout', layoutData)
+      const layout = deriveLayout(layoutData)
+      setTopsDescription(layout.topsDescription)
+      setTopsPhotos(layout.topsPhotos)
+      setBottomsDescription(layout.bottomsDescription)
+      setBottomsPhotos(layout.bottomsPhotos)
 
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
-      // Below Tailwind's md breakpoint (768px, same one used site-wide),
-      // prefer the smaller variant if one was generated.
-      const isMobileViewport = window.innerWidth < 768
-      const backgroundFullURL =
-        (isMobileViewport ? backgroundData.smallImageURL : backgroundData.imageURL) ||
-        backgroundData.imageURL ||
-        ''
-      const backgroundThumbnailURL = backgroundData.thumbnailURL || ''
-
-      if (backgroundThumbnailURL) {
-        setBackgroundDisplayURL(backgroundThumbnailURL)
+      writeCache('collectionHero', backgroundData)
+      const backgroundFullURL = pickBackgroundURL(backgroundData)
+      if (backgroundData.thumbnailURL) {
+        setBackgroundDisplayURL(backgroundData.thumbnailURL)
+        setBackgroundSharp(false)
       }
 
       setLoading(false)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { preloadImages } from '../utils/preloadImages'
+import { readCache, writeCache } from '../utils/cache'
 import defaultHomeImage from '../assets/home.jpeg'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -10,31 +11,41 @@ import AboutPreview from '../components/AboutPreview'
 import ProductsPreview from '../components/ProductsPreview'
 import LoadingScreen from '../components/LoadingScreen'
 
+// Below Tailwind's md breakpoint (768px, same one used site-wide), prefer
+// the smaller variant if one was generated — a phone doesn't need to
+// download the full desktop-resolution photo.
+function pickFullURL(data) {
+  const isMobileViewport = window.innerWidth < 768
+  return (isMobileViewport ? data.smallImageURL : data.imageURL) || data.imageURL || defaultHomeImage
+}
+
 function Home() {
-  // Starts as the local fallback, shown at full sharpness — a real,
-  // complete image, not a degraded placeholder, so no blur applies to it.
-  const [heroDisplayURL, setHeroDisplayURL] = useState(defaultHomeImage)
-  const [heroSharp, setHeroSharp] = useState(true)
-  // Only gates the page on the Firestore fetch itself (fast, low-risk) —
-  // never on images. Images load in the background and swap in whenever
-  // they're ready, so one slow/broken photo can't hang the whole page.
-  const [loading, setLoading] = useState(true)
+  // Read once per mount (not module scope — a module stays loaded across
+  // client-side navigations within the same visit, so a module-level read
+  // would go stale after the first load).
+  const cachedHero = readCache('hero')
+
+  // On a repeat visit, start directly from the last-known content instead
+  // of the local fallback — skips the loading screen and the blur-up step
+  // entirely, since we already have real data to show. A fresh fetch still
+  // runs below and corrects anything if it's changed since last time.
+  const [heroDisplayURL, setHeroDisplayURL] = useState(() =>
+    cachedHero ? cachedHero.thumbnailURL || pickFullURL(cachedHero) : defaultHomeImage,
+  )
+  const [heroSharp, setHeroSharp] = useState(() => !(cachedHero && cachedHero.thumbnailURL))
+  const [loading, setLoading] = useState(() => !cachedHero)
 
   useEffect(() => {
     async function load() {
       const snapshot = await getDoc(doc(db, 'siteSettings', 'hero'))
       const data = snapshot.exists() ? snapshot.data() : {}
-      // Below Tailwind's md breakpoint (768px, same one used site-wide),
-      // prefer the smaller variant if one was generated — a phone doesn't
-      // need to download the full desktop-resolution photo.
-      const isMobileViewport = window.innerWidth < 768
-      const fullURL = (isMobileViewport ? data.smallImageURL : data.imageURL) || data.imageURL || defaultHomeImage
-      const thumbnailURL = data.thumbnailURL || ''
+      writeCache('hero', data)
 
-      if (thumbnailURL) {
+      const fullURL = pickFullURL(data)
+      if (data.thumbnailURL) {
         // Blurred thumbnail is already in hand (embedded in this same doc,
         // no extra request) — show it right away.
-        setHeroDisplayURL(thumbnailURL)
+        setHeroDisplayURL(data.thumbnailURL)
         setHeroSharp(false)
       }
       setLoading(false)

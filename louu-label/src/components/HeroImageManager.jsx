@@ -9,6 +9,7 @@ import {
   getCroppedThumbnailDataURL,
   SMALL_PHOTO_MAX_SIZE,
   LARGE_PHOTO_MAX_SIZE,
+  LONG_CACHE_METADATA,
 } from '../utils/cropImage'
 import useModalA11y from '../hooks/useModalA11y'
 
@@ -102,7 +103,10 @@ function HeroImageManager({
       ])
       const largeRef = ref(storage, `${storagePrefix}-${Date.now()}-large-${imageFile.name}`)
       const smallRef = ref(storage, `${storagePrefix}-${Date.now()}-small-${imageFile.name}`)
-      await Promise.all([uploadBytes(largeRef, largeBlob), uploadBytes(smallRef, smallBlob)])
+      await Promise.all([
+        uploadBytes(largeRef, largeBlob, LONG_CACHE_METADATA),
+        uploadBytes(smallRef, smallBlob, LONG_CACHE_METADATA),
+      ])
       const [newImageURL, newSmallImageURL] = await Promise.all([
         getDownloadURL(largeRef),
         getDownloadURL(smallRef),

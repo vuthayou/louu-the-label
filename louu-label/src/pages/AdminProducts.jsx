@@ -12,6 +12,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
+import { LONG_CACHE_METADATA } from '../utils/cropImage'
 
 // For elements that already declare their own `rounded`/`rounded-lg` class.
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
@@ -117,7 +118,7 @@ function AdminProducts() {
       let imageURL = existingImageURL
       if (imageFile) {
         const imageRef = ref(storage, `products/${Date.now()}-${imageFile.name}`)
-        await uploadBytes(imageRef, imageFile)
+        await uploadBytes(imageRef, imageFile, LONG_CACHE_METADATA)
         imageURL = await getDownloadURL(imageRef)
       }
 

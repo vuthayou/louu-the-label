@@ -4,7 +4,12 @@ import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
-import { getCroppedImageBlob, SMALL_PHOTO_MAX_SIZE, LARGE_PHOTO_MAX_SIZE } from '../utils/cropImage'
+import {
+  getCroppedImageBlob,
+  SMALL_PHOTO_MAX_SIZE,
+  LARGE_PHOTO_MAX_SIZE,
+  LONG_CACHE_METADATA,
+} from '../utils/cropImage'
 import HeroImageManager from '../components/HeroImageManager'
 import PhotoGridManager from '../components/PhotoGridManager'
 import useModalA11y from '../hooks/useModalA11y'
@@ -119,7 +124,10 @@ function AdminCollectionHero() {
       ])
       const smallRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-small-${cropFile.name}`)
       const largeRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-large-${cropFile.name}`)
-      await Promise.all([uploadBytes(smallRef, smallBlob), uploadBytes(largeRef, largeBlob)])
+      await Promise.all([
+        uploadBytes(smallRef, smallBlob, LONG_CACHE_METADATA),
+        uploadBytes(largeRef, largeBlob, LONG_CACHE_METADATA),
+      ])
       const [small, large] = await Promise.all([getDownloadURL(smallRef), getDownloadURL(largeRef)])
       const photoEntry = { small, large }
       if (category === 'tops') {
