@@ -6,8 +6,8 @@
 // of breaking onto a second row — this keeps the section's height (and how
 // far you have to scroll to reach the next section) constant no matter how
 // many photos an admin uploads, on both desktop and mobile.
-const ROW_HEIGHT = 'h-96'
-const MOBILE_ROW_HEIGHT = 'h-[50vh]'
+const ROW_HEIGHT = 'h-[420px]'
+const MOBILE_ROW_HEIGHT = 'h-[54vh]'
 
 // Only used when no real photos have been uploaded yet, so the section
 // still looks reasonable rather than empty. Colors are paired with fixed
@@ -26,7 +26,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
 
   return (
     <section className="min-h-screen flex items-center pt-16 pb-24">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 w-full">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 w-full">
         {/* Mobile: title block, then photos in their own horizontally-scrolling row */}
         <div className="flex flex-col gap-8 md:hidden">
           <div>
