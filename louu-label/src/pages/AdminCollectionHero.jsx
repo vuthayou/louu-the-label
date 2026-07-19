@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import Cropper from 'react-easy-crop'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
 import { getCroppedImageBlob } from '../utils/cropImage'
 import HeroImageManager from '../components/HeroImageManager'
 import PhotoGridManager from '../components/PhotoGridManager'
+import useModalA11y from '../hooks/useModalA11y'
 
 const inputFocus = 'focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900'
 const focusRing =
@@ -97,13 +98,15 @@ function AdminCollectionHero() {
     setCroppedAreaPixels(null)
   }
 
-  function closeCropModal() {
+  const closeCropModal = useCallback(() => {
     setCropTarget(null)
     setCropFile(null)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
     setCroppedAreaPixels(null)
-  }
+  }, [])
+
+  const modalRef = useModalA11y(Boolean(cropTarget), closeCropModal)
 
   async function handleConfirmCrop() {
     if (!cropFile || !croppedAreaPixels || !cropTarget) return
@@ -204,7 +207,17 @@ function AdminCollectionHero() {
 
       {cropTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg bg-white rounded shadow-lg p-6">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              (cropTarget.category === 'tops' ? topsPhotos : bottomsPhotos)[cropTarget.index]
+                ? 'Replace photo'
+                : 'Add photo'
+            }
+            className="w-full max-w-lg bg-white rounded shadow-lg p-6"
+          >
             <h3 className="text-lg font-semibold mb-4">
               {(cropTarget.category === 'tops' ? topsPhotos : bottomsPhotos)[cropTarget.index]
                 ? 'Replace photo'

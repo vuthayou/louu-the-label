@@ -8,7 +8,7 @@ import {
   doc,
   getDocs,
   serverTimestamp,
-} from 'firebase/firestore'
+} from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'

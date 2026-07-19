@@ -1,11 +1,17 @@
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore/lite'
 import { app } from './firebaseApp'
 
-// Firestore only — kept separate from Storage/Auth (see firebaseAdmin.js) so
+// Firestore Lite — every read/write in this app is one-time (getDoc,
+// setDoc, etc.); nothing uses onSnapshot real-time listeners. The regular
+// Firestore SDK's real-time sync + offline-persistence engine is most of
+// its bundle weight, so the Lite build (same functions, no real-time
+// engine) is a drop-in swap with no functional change. Every file that
+// imports from 'firebase/firestore' has to use the '/lite' path too — a
+// regular Firestore doc/getDoc call can't mix with a Lite-created db
+// instance. Also kept separate from Storage/Auth (see firebaseAdmin.js) so
 // public pages (Home, Catalog, About) only ever have to load the Firestore
 // SDK to fetch their content, not the Storage/Auth code that only Admin
-// actually needs. That split shrinks the JS that has to run before a public
-// page's first Firestore read can even start.
+// actually needs.
 export const db = getFirestore(app)
 
 // import.meta.env.DEV is true only for `npm run dev`, false for production

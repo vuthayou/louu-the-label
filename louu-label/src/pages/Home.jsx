@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'

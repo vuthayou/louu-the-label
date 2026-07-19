@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
 import { getCroppedImageBlob } from '../utils/cropImage'
+import useModalA11y from '../hooks/useModalA11y'
 
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
@@ -67,13 +68,15 @@ function HeroImageManager({
     setError('')
   }
 
-  function closeCropModal() {
+  const closeCropModal = useCallback(() => {
     setImageFile(null)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
     setCroppedAreaPixels(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
-  }
+  }, [])
+
+  const modalRef = useModalA11y(Boolean(previewURL), closeCropModal)
 
   const onCropComplete = useCallback((_croppedArea, pixels) => {
     setCroppedAreaPixels(pixels)
@@ -136,7 +139,13 @@ function HeroImageManager({
 
       {previewURL && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg bg-white rounded shadow-lg p-6">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Update ${label.toLowerCase()} photo`}
+            className="w-full max-w-lg bg-white rounded shadow-lg p-6"
+          >
             <h3 className="text-lg font-semibold mb-4">Update {label.toLowerCase()} photo</h3>
             <p className="text-sm text-gray-500 mb-2">
               Drag to move, scroll or pinch to zoom — this is exactly what will show live:

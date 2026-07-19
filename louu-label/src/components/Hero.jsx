@@ -10,6 +10,7 @@ function Hero({ imageURL }) {
       <img
         src={imageURL || defaultHomeImage}
         alt="Louu the Label"
+        fetchpriority="high"
         className="absolute inset-0 w-full h-full object-cover object-[75%_15%]"
       />
       {/* Guarantees the white text stays readable (AA contrast) no matter
