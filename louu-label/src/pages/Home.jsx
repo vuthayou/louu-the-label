@@ -25,14 +25,15 @@ function Home() {
   // would go stale after the first load).
   const cachedHero = readCache('hero')
 
-  // On a repeat visit, start directly from the last-known content instead
-  // of the local fallback — skips the loading screen and the blur-up step
-  // entirely, since we already have real data to show. A fresh fetch still
-  // runs below and corrects anything if it's changed since last time.
+  // On a repeat visit, start directly from the full cached photo, already
+  // sharp — the browser almost certainly has it in its own HTTP cache
+  // (Storage uploads set a long Cache-Control), so there's no reason to
+  // blur it. The blur-up thumbnail is only for a genuine first-ever visit,
+  // when nothing is cached anywhere yet — see the effect below.
   const [heroDisplayURL, setHeroDisplayURL] = useState(() =>
-    cachedHero ? cachedHero.thumbnailURL || pickFullURL(cachedHero) : defaultHomeImage,
+    cachedHero ? pickFullURL(cachedHero) : defaultHomeImage,
   )
-  const [heroSharp, setHeroSharp] = useState(() => !(cachedHero && cachedHero.thumbnailURL))
+  const [heroSharp, setHeroSharp] = useState(() => Boolean(cachedHero))
   const [loading, setLoading] = useState(() => !cachedHero)
 
   useEffect(() => {
@@ -40,22 +41,31 @@ function Home() {
       const snapshot = await getDoc(doc(db, 'siteSettings', 'hero'))
       const data = snapshot.exists() ? snapshot.data() : {}
       writeCache('hero', data)
-
       const fullURL = pickFullURL(data)
-      if (data.thumbnailURL) {
-        // Blurred thumbnail is already in hand (embedded in this same doc,
-        // no extra request) — show it right away.
-        setHeroDisplayURL(data.thumbnailURL)
-        setHeroSharp(false)
-      }
-      setLoading(false)
 
-      // Full photo loads in the background and swaps in whenever it's
-      // ready — doesn't block the page from showing in the meantime.
-      preloadImages([fullURL]).then(() => {
-        setHeroDisplayURL(fullURL)
-        setHeroSharp(true)
-      })
+      if (!cachedHero) {
+        // Genuine first visit — nothing real shown yet. Show the blurred
+        // thumbnail (if any) while the full photo downloads, then sharpen.
+        if (data.thumbnailURL) {
+          setHeroDisplayURL(data.thumbnailURL)
+          setHeroSharp(false)
+        }
+        setLoading(false)
+        preloadImages([fullURL]).then(() => {
+          setHeroDisplayURL(fullURL)
+          setHeroSharp(true)
+        })
+      } else {
+        setLoading(false)
+        if (fullURL !== pickFullURL(cachedHero)) {
+          // Repeat visit, but the photo actually changed since last time —
+          // quietly swap once the new one is ready. Already showing
+          // something real and sharp, so no blur step here.
+          preloadImages([fullURL]).then(() => {
+            setHeroDisplayURL(fullURL)
+          })
+        }
+      }
     }
 
     load()

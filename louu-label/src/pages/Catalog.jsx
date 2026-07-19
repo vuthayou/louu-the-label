@@ -57,10 +57,14 @@ function Catalog() {
   const [topsPhotos, setTopsPhotos] = useState(initialLayout.topsPhotos)
   const [bottomsDescription, setBottomsDescription] = useState(initialLayout.bottomsDescription)
   const [bottomsPhotos, setBottomsPhotos] = useState(initialLayout.bottomsPhotos)
+  // Same reasoning as Home's hero photo: a repeat visit goes straight to
+  // the full cached photo, already sharp, trusting the browser's own HTTP
+  // cache (Storage uploads set a long Cache-Control) — blur-up is only for
+  // a genuine first-ever visit, when nothing is cached anywhere yet.
   const [backgroundDisplayURL, setBackgroundDisplayURL] = useState(() =>
-    cachedBackground ? cachedBackground.thumbnailURL || '' : '',
+    cachedBackground ? pickBackgroundURL(cachedBackground) : '',
   )
-  const [backgroundSharp, setBackgroundSharp] = useState(() => !(cachedBackground && cachedBackground.thumbnailURL))
+  const [backgroundSharp, setBackgroundSharp] = useState(() => Boolean(cachedBackground))
   // Gated on the layout cache specifically — that's the content
   // (title/description/photos) that actually defines "is there something
   // real to show yet." The background photo has always been a secondary,
@@ -85,21 +89,30 @@ function Catalog() {
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
       writeCache('collectionHero', backgroundData)
       const backgroundFullURL = pickBackgroundURL(backgroundData)
-      if (backgroundData.thumbnailURL) {
-        setBackgroundDisplayURL(backgroundData.thumbnailURL)
-        setBackgroundSharp(false)
+
+      if (!cachedBackground) {
+        // Genuine first visit — nothing real shown yet. Show the blurred
+        // thumbnail (if any) while the full photo downloads, then sharpen.
+        if (backgroundData.thumbnailURL) {
+          setBackgroundDisplayURL(backgroundData.thumbnailURL)
+          setBackgroundSharp(false)
+        }
+        if (backgroundFullURL) {
+          preloadImages([backgroundFullURL]).then(() => {
+            setBackgroundDisplayURL(backgroundFullURL)
+            setBackgroundSharp(true)
+          })
+        }
+      } else if (backgroundFullURL && backgroundFullURL !== pickBackgroundURL(cachedBackground)) {
+        // Repeat visit, but the photo actually changed since last time —
+        // quietly swap once the new one is ready. Already showing
+        // something real and sharp, so no blur step here.
+        preloadImages([backgroundFullURL]).then(() => {
+          setBackgroundDisplayURL(backgroundFullURL)
+        })
       }
 
       setLoading(false)
-
-      // Full background photo loads in the background and swaps in
-      // whenever it's ready — doesn't block the page from showing.
-      if (backgroundFullURL) {
-        preloadImages([backgroundFullURL]).then(() => {
-          setBackgroundDisplayURL(backgroundFullURL)
-          setBackgroundSharp(true)
-        })
-      }
     }
 
     load()
