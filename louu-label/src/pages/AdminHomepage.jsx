@@ -130,7 +130,7 @@ function AdminHomepage() {
           type="file"
           accept="image/*"
           onChange={handleFileChange}
-          className="border border-gray-300 rounded px-3 py-2"
+          className="border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
         />
 
         {previewURL ? (
@@ -158,7 +158,7 @@ function AdminHomepage() {
                 step={0.01}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="flex-1"
+                className="flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 rounded-sm"
               />
             </label>
           </div>
@@ -183,7 +183,7 @@ function AdminHomepage() {
         <button
           type="submit"
           disabled={uploading}
-          className="bg-gray-900 text-white rounded px-3 py-2 text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 self-start"
+          className="bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
         >
           {uploading ? 'Uploading...' : 'Update hero photo'}
         </button>

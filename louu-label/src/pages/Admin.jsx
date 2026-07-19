@@ -14,6 +14,9 @@ const SECTIONS = [
   { id: 'homepage', label: 'Homepage', Component: AdminHomepage },
 ]
 
+const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
+
 function Admin() {
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -41,15 +44,18 @@ function Admin() {
   const ActiveComponent = SECTIONS.find((s) => s.id === activeSection).Component
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
+    <div className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
-        <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+        <Link
+          to="/"
+          className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
+        >
           Louu
         </Link>
         <h1 className="text-xl font-semibold">Admin</h1>
         <button
           onClick={() => signOut(auth)}
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
         >
           Sign out
         </button>
@@ -60,7 +66,7 @@ function Admin() {
           <button
             key={section.id}
             onClick={() => setActiveSection(section.id)}
-            className={`pb-3 text-sm border-b-2 -mb-px transition-colors ${
+            className={`pb-2 text-sm border-b-2 -mb-px transition-all duration-300 ease-in-out ${focusRing} ${
               activeSection === section.id
                 ? 'border-gray-900 text-gray-900 font-medium'
                 : 'border-transparent text-gray-500 hover:text-gray-900'

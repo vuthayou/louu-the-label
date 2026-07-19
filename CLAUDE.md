@@ -5,7 +5,8 @@
 - Firebase: Firestore (data), Storage (images), Authentication (email/password, single admin user), Hosting (deploy)
 - react-easy-crop (Admin only) — interactive photo crop/zoom for the hero image upload
 - No Bootstrap, no other CSS framework — Tailwind utility classes only
-- No animation libraries. Keep transitions minimal (simple hover states only).
+- No JS animation libraries (Framer Motion, etc.) — CSS transitions only. Interactive elements (buttons, links, inputs) use `transition-all duration-300 ease-in-out` on hover/focus/active states for a smooth, professional feel (relaxed from the earlier "minimal transitions" rule).
+- shadcn/ui explicitly declined — stays plain hand-written Tailwind elements, not a component library, to keep bundle size down (performance is a standing priority).
 
 ## User context
 - User has a CS background, knows HTML/CSS/JS, is new to React/Firebase/web tooling.

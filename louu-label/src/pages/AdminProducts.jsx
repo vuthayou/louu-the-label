@@ -12,6 +12,12 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../firebase'
 
+// For elements that already declare their own `rounded`/`rounded-lg` class.
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
+// For plain text links/buttons with no border-radius of their own.
+const focusRingText = `${focusRing} rounded-sm`
+const inputFocus = 'focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900'
+
 function AdminProducts() {
   const [products, setProducts] = useState([])
   const [archivedProducts, setArchivedProducts] = useState([])
@@ -221,7 +227,7 @@ function AdminProducts() {
           accept="image/*"
           onChange={(e) => setImageFile(e.target.files[0])}
           required={!editingId}
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <input
           type="text"
@@ -229,7 +235,7 @@ function AdminProducts() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <input
           type="number"
@@ -238,7 +244,7 @@ function AdminProducts() {
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           required
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <input
           type="text"
@@ -246,27 +252,27 @@ function AdminProducts() {
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           required
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <textarea
           placeholder="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <textarea
           placeholder="Notes (admin-only, never shown to customers)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2"
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="submit"
             disabled={uploading}
-            className="bg-gray-900 text-white rounded px-3 py-2 hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className={`bg-gray-900 text-white rounded px-4 py-2 hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
           >
             {uploading
               ? editingId
@@ -280,7 +286,7 @@ function AdminProducts() {
             <button
               type="button"
               onClick={handleCancelEdit}
-              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
             >
               Cancel
             </button>
@@ -297,7 +303,7 @@ function AdminProducts() {
         {!editingId && (
           <button
             onClick={() => setShowAddForm((prev) => !prev)}
-            className="bg-gray-900 text-white rounded px-3 py-2 text-sm hover:bg-gray-700 transition-colors"
+            className={`bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out ${focusRing}`}
           >
             {showAddForm ? 'Cancel' : 'Add product'}
           </button>
@@ -312,14 +318,14 @@ function AdminProducts() {
         showAddForm && <div className="mb-8">{renderForm()}</div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {products.map((product) => {
           const isEditingThis = editingId === product.id
           const isExpanded = expandedIds.has(product.id) || isEditingThis
           return (
             <div key={product.id} className="border border-gray-200 rounded">
-              <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between px-4 py-4">
+                <div className="flex items-center gap-2">
                   <img
                     src={product.imageURL}
                     alt={product.name}
@@ -330,18 +336,18 @@ function AdminProducts() {
                     <p className="text-sm text-gray-500">${product.price}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleExpand(product.id)}
                     aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
-                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                    className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
                   >
                     {isExpanded ? '▲' : '▼'}
                   </button>
                 </div>
               </div>
               {isExpanded && (
-                <div className="border-t border-gray-200 px-4 py-3">
+                <div className="border-t border-gray-200 px-4 py-4">
                   {isEditingThis ? (
                     renderForm()
                   ) : (
@@ -358,22 +364,22 @@ function AdminProducts() {
                         <span className="font-medium text-gray-900">Notes:</span>{' '}
                         {notesMap[product.id] || '—'}
                       </p>
-                      <div className="self-end flex items-center gap-3">
+                      <div className="self-end flex items-center gap-2">
                         <button
                           onClick={() => handleEditClick(product)}
-                          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                          className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleArchive(product)}
-                          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                          className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
                         >
                           Archive
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                          className={`text-sm text-red-600 hover:text-red-800 transition-all duration-300 ease-in-out ${focusRingText}`}
                         >
                           Delete
                         </button>
@@ -390,13 +396,13 @@ function AdminProducts() {
       {archivedProducts.length > 0 && (
         <div className="mt-12">
           <h2 className="text-lg font-semibold mb-4">Archived</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {archivedProducts.map((product) => (
               <div
                 key={product.id}
-                className="flex items-center justify-between border border-gray-200 rounded px-4 py-3 opacity-75"
+                className="flex items-center justify-between border border-gray-200 rounded px-4 py-4 opacity-75"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <img
                     src={product.imageURL}
                     alt={product.name}
@@ -407,16 +413,16 @@ function AdminProducts() {
                     <p className="text-sm text-gray-500">${product.price}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleRestore(product)}
-                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                    className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
                   >
                     Move back live
                   </button>
                   <button
                     onClick={() => handleDeleteArchived(product.id)}
-                    className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                    className={`text-sm text-red-600 hover:text-red-800 transition-all duration-300 ease-in-out ${focusRingText}`}
                   >
                     Delete
                   </button>
