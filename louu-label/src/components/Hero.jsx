@@ -22,11 +22,11 @@ function Hero({ imageURL }) {
           <span>Planet</span>
         </div>
       </div>
-
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-10 text-xs md:text-sm uppercase tracking-wide text-white">
+      {/*Product Category && About us*/}
+      <div className="absolute bottom-28 left-1/2 -translate-x-1/2 flex items-center gap-16 md:gap-24 text-sm md:text-base uppercase tracking-wide text-white">
         <Link
           to="/collection"
-          className="underline underline-offset-4 leading-tight hover:opacity-80 transition-opacity"
+          className="underline underline-offset-4 leading-tight text-center hover:opacity-80 transition-opacity"
         >
           Product
           <br />
