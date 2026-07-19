@@ -4,6 +4,8 @@ import { db } from '../firebase'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import Hero from '../components/Hero'
+import AboutPreview from '../components/AboutPreview'
+import ProductsPreview from '../components/ProductsPreview'
 
 function Home() {
   const [heroImageURL, setHeroImageURL] = useState('')
@@ -29,6 +31,8 @@ function Home() {
             flashing the local fallback and then swapping to it. */}
         {heroLoading ? <div className="flex-1 bg-gray-100" /> : <Hero imageURL={heroImageURL} />}
       </div>
+      <AboutPreview />
+      <ProductsPreview />
       <Footer />
     </div>
   )
