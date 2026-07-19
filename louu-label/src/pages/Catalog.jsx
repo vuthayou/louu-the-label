@@ -1,38 +1,14 @@
-import { useEffect, useState } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import ProductGrid from '../components/ProductGrid'
 
 function Catalog() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchProducts() {
-      const snapshot = await getDocs(collection(db, 'products'))
-      const fetched = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      setProducts(fetched)
-      setLoading(false)
-    }
-
-    fetchProducts()
-  }, [])
-
   return (
     <div>
       <Navbar />
-      {loading ? (
-        <p className="text-center py-12 text-gray-500">Loading products...</p>
-      ) : products.length === 0 ? (
-        <p className="text-center py-12 text-gray-500">No products yet.</p>
-      ) : (
-        <ProductGrid products={products} />
-      )}
+      <div className="max-w-2xl mx-auto px-4 md:px-6 lg:px-8 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-4">Products</h1>
+        <p className="text-gray-500">Coming soon.</p>
+      </div>
       <Footer />
     </div>
   )

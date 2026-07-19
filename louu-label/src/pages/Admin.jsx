@@ -5,6 +5,7 @@ import { auth } from '../firebase'
 import Login from './Login'
 import AdminProducts from './AdminProducts'
 import AdminHomepage from './AdminHomepage'
+import AdminCollectionHero from './AdminCollectionHero'
 
 // Each entry is one nav item + the section it shows. Adding a future
 // section (e.g. About page content) is just adding another entry here
@@ -12,6 +13,7 @@ import AdminHomepage from './AdminHomepage'
 const SECTIONS = [
   { id: 'products', label: 'Products', Component: AdminProducts },
   { id: 'homepage', label: 'Homepage', Component: AdminHomepage },
+  { id: 'collection', label: 'Collection', Component: AdminCollectionHero },
 ]
 
 const focusRing =

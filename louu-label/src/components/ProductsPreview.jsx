@@ -25,7 +25,7 @@ function ProductsPreview() {
             to="/collection"
             className={`inline-block text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
           >
-            Shop Now
+            Explore Now
           </Link>
         </div>
       </div>
