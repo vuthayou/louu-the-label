@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db } from '../firebase'
+import { storage } from '../firebaseAdmin'
 import { getCroppedImageBlob } from '../utils/cropImage'
 
 const focusRing =

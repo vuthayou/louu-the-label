@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Lets the browser start the network handshake with Firebase's
+         domains in parallel with JS loading, so the actual Firestore/Storage
+         requests complete faster once the app code is ready to make them. -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
     <title>Louu the Label</title>
     <meta name="description" content="Louu the Label - For Ladies." />
   </head>

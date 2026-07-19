@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { auth } from '../firebase'
+import { auth } from '../firebaseAdmin'
 import Login from './Login'
 import AdminProducts from './AdminProducts'
 import AdminHomepage from './AdminHomepage'

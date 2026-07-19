@@ -5,7 +5,7 @@ import {
   setPersistence,
   browserSessionPersistence,
 } from 'firebase/auth'
-import { auth } from '../firebase'
+import { auth } from '../firebaseAdmin'
 
 // For elements that already declare their own `rounded`/`rounded-lg` class.
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'

@@ -10,7 +10,8 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db } from '../firebase'
+import { storage } from '../firebaseAdmin'
 
 // For elements that already declare their own `rounded`/`rounded-lg` class.
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
