@@ -20,6 +20,9 @@ import {
   LONG_CACHE_METADATA,
 } from '../utils/cropImage'
 import useModalA11y from '../hooks/useModalA11y'
+import PhotoGridManager from '../components/PhotoGridManager'
+
+const MAX_GALLERY_PHOTOS = 8
 
 // For elements that already declare their own `rounded`/`rounded-lg` class.
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
@@ -137,6 +140,19 @@ function AdminProducts() {
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
 
+  // Gallery photo crop popup state — separate from the main product-photo
+  // crop above. Gallery photos belong to an already-saved product (managed
+  // from the expanded row panel, not the Add/Edit form), so each upload
+  // saves immediately on confirm rather than deferring to a form submit —
+  // same immediate-upload pattern as Tops/Bottoms photos elsewhere in Admin.
+  const [galleryCropTarget, setGalleryCropTarget] = useState(null) // { productId, index } | null
+  const [galleryCropFile, setGalleryCropFile] = useState(null)
+  const [galleryCropPreviewURL, setGalleryCropPreviewURL] = useState('')
+  const [galleryCrop, setGalleryCrop] = useState({ x: 0, y: 0 })
+  const [galleryZoom, setGalleryZoom] = useState(1)
+  const [galleryCroppedAreaPixels, setGalleryCroppedAreaPixels] = useState(null)
+  const [galleryUploadingSlot, setGalleryUploadingSlot] = useState(null) // `gallery-{productId}-{index}` | null
+
   // No auth check here — Admin.jsx only renders this component once a user
   // is already signed in, so it's safe to fetch immediately on mount.
   useEffect(() => {
@@ -154,6 +170,16 @@ function AdminProducts() {
     setCropPreviewURL(objectURL)
     return () => URL.revokeObjectURL(objectURL)
   }, [cropFile])
+
+  useEffect(() => {
+    if (!galleryCropFile) {
+      setGalleryCropPreviewURL('')
+      return
+    }
+    const objectURL = URL.createObjectURL(galleryCropFile)
+    setGalleryCropPreviewURL(objectURL)
+    return () => URL.revokeObjectURL(objectURL)
+  }, [galleryCropFile])
 
   useEffect(() => {
     if (!croppedPhoto) {
@@ -262,6 +288,71 @@ function AdminProducts() {
     ])
     setCroppedPhoto({ small, large, fileName: cropFile.name })
     closeCropModal()
+  }
+
+  function openGalleryCrop(productId, index, file) {
+    if (!file) return
+    setGalleryCropTarget({ productId, index })
+    setGalleryCropFile(file)
+    setGalleryCrop({ x: 0, y: 0 })
+    setGalleryZoom(1)
+    setGalleryCroppedAreaPixels(null)
+  }
+
+  const onGalleryCropComplete = useCallback((_croppedArea, pixels) => {
+    setGalleryCroppedAreaPixels(pixels)
+  }, [])
+
+  const closeGalleryCropModal = useCallback(() => {
+    setGalleryCropTarget(null)
+    setGalleryCropFile(null)
+    setGalleryCrop({ x: 0, y: 0 })
+    setGalleryZoom(1)
+    setGalleryCroppedAreaPixels(null)
+  }, [])
+
+  const galleryCropModalRef = useModalA11y(Boolean(galleryCropTarget), closeGalleryCropModal)
+
+  async function handleConfirmGalleryCrop() {
+    if (!galleryCropFile || !galleryCroppedAreaPixels || !galleryCropTarget) return
+    const { productId, index } = galleryCropTarget
+    const slotKey = `gallery-${productId}-${index}`
+    setGalleryUploadingSlot(slotKey)
+    try {
+      const [large, small] = await Promise.all([
+        getCroppedImageBlob(galleryCropPreviewURL, galleryCroppedAreaPixels, LARGE_PHOTO_MAX_SIZE),
+        getCroppedImageBlob(galleryCropPreviewURL, galleryCroppedAreaPixels, SMALL_PHOTO_MAX_SIZE),
+      ])
+      const largeRef = ref(
+        storage,
+        `products/${productId}-gallery-${index}-${Date.now()}-large-${galleryCropFile.name}`,
+      )
+      const smallRef = ref(
+        storage,
+        `products/${productId}-gallery-${index}-${Date.now()}-small-${galleryCropFile.name}`,
+      )
+      await Promise.all([
+        uploadBytes(largeRef, large, LONG_CACHE_METADATA),
+        uploadBytes(smallRef, small, LONG_CACHE_METADATA),
+      ])
+      const [largeURL, smallURL] = await Promise.all([getDownloadURL(largeRef), getDownloadURL(smallRef)])
+      const product = products.find((p) => p.id === productId)
+      const nextGallery = [...(product.galleryPhotos || [])]
+      nextGallery[index] = { small: smallURL, large: largeURL }
+      await updateDoc(doc(db, 'products', productId), { galleryPhotos: nextGallery })
+      await fetchProducts()
+      closeGalleryCropModal()
+    } finally {
+      setGalleryUploadingSlot(null)
+    }
+  }
+
+  async function handleRemoveGalleryPhoto(productId, index) {
+    if (!window.confirm('Remove this photo? This cannot be undone.')) return
+    const product = products.find((p) => p.id === productId)
+    const nextGallery = (product.galleryPhotos || []).filter((_, i) => i !== index)
+    await updateDoc(doc(db, 'products', productId), { galleryPhotos: nextGallery })
+    await fetchProducts()
   }
 
   async function handleSubmit(e) {
@@ -711,6 +802,17 @@ function AdminProducts() {
                       <span className="font-medium text-gray-900">Notes:</span>{' '}
                       {notesMap[product.id] || '—'}
                     </p>
+                    <div>
+                      <p className="font-medium text-gray-900 mb-2">Gallery Photos</p>
+                      <PhotoGridManager
+                        photos={product.galleryPhotos || []}
+                        maxPhotos={MAX_GALLERY_PHOTOS}
+                        keyPrefix={`gallery-${product.id}`}
+                        uploadingSlot={galleryUploadingSlot}
+                        onSelectFile={(index, file) => openGalleryCrop(product.id, index, file)}
+                        onRemove={(index) => handleRemoveGalleryPhoto(product.id, index)}
+                      />
+                    </div>
                     <div className="self-end flex items-center gap-2">
                       <button
                         onClick={() => handleEditClick(product)}
@@ -803,6 +905,69 @@ function AdminProducts() {
               <button
                 type="button"
                 onClick={closeCropModal}
+                className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {galleryCropTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div
+            ref={galleryCropModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Crop gallery photo"
+            className="w-full max-w-lg bg-white rounded shadow-lg p-6"
+          >
+            <h3 className="text-lg font-semibold mb-4">Crop gallery photo</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Drag to move, scroll or pinch to zoom — cropped to a 4:5 ratio to match the product
+              photo.
+            </p>
+            <div className="relative w-full aspect-[4/5] bg-gray-100 rounded overflow-hidden">
+              <Cropper
+                image={galleryCropPreviewURL}
+                crop={galleryCrop}
+                zoom={galleryZoom}
+                aspect={4 / 5}
+                onCropChange={setGalleryCrop}
+                onZoomChange={setGalleryZoom}
+                onCropComplete={onGalleryCropComplete}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+              Zoom
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={galleryZoom}
+                onChange={(e) => setGalleryZoom(Number(e.target.value))}
+                className="flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 rounded-sm"
+              />
+            </label>
+            <div className="flex items-center gap-4 mt-4">
+              <button
+                type="button"
+                onClick={handleConfirmGalleryCrop}
+                disabled={
+                  !galleryCroppedAreaPixels ||
+                  galleryUploadingSlot === `gallery-${galleryCropTarget.productId}-${galleryCropTarget.index}`
+                }
+                className={`bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
+              >
+                {galleryUploadingSlot === `gallery-${galleryCropTarget.productId}-${galleryCropTarget.index}`
+                  ? 'Uploading...'
+                  : 'Confirm'}
+              </button>
+              <button
+                type="button"
+                onClick={closeGalleryCropModal}
                 className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
               >
                 Cancel
