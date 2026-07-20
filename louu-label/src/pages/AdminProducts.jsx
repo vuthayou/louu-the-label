@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Cropper from 'react-easy-crop'
 import {
   collection,
   addDoc,
@@ -12,7 +13,13 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
-import { LONG_CACHE_METADATA } from '../utils/cropImage'
+import {
+  getCroppedImageBlob,
+  SMALL_PHOTO_MAX_SIZE,
+  LARGE_PHOTO_MAX_SIZE,
+  LONG_CACHE_METADATA,
+} from '../utils/cropImage'
+import useModalA11y from '../hooks/useModalA11y'
 
 // For elements that already declare their own `rounded`/`rounded-lg` class.
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2'
@@ -33,13 +40,25 @@ function AdminProducts() {
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  const [color, setColor] = useState('')
+  const [size, setSize] = useState('')
+  const [modelDetail, setModelDetail] = useState('')
+  const [sizeGuide, setSizeGuide] = useState('')
   const [notes, setNotes] = useState('')
-  const [imageFile, setImageFile] = useState(null)
+
+  // The cropped, ready-to-upload photo for the form currently in use — set
+  // once the crop popup below is confirmed. Upload itself is deferred to
+  // handleSubmit (see there for why), not done immediately like the other
+  // crop popups elsewhere in Admin.
+  const [croppedPhoto, setCroppedPhoto] = useState(null) // { small: Blob, large: Blob, fileName: string } | null
+  const [croppedPreviewURL, setCroppedPreviewURL] = useState('')
+  const fileInputRef = useRef(null)
 
   // null = form is adding a new product; otherwise the Firestore doc ID
   // of the product currently being edited.
   const [editingId, setEditingId] = useState(null)
   const [existingImageURL, setExistingImageURL] = useState('')
+  const [existingSmallImageURL, setExistingSmallImageURL] = useState('')
   // Whether the "Add product" form is currently revealed. Products are the
   // default view, not the form.
   const [showAddForm, setShowAddForm] = useState(false)
@@ -51,6 +70,15 @@ function AdminProducts() {
   // number of products can be expanded at once, independently of each other.
   const [expandedIds, setExpandedIds] = useState(new Set())
 
+  // Crop popup state — opens right after a photo is picked. Fixed 4:5
+  // aspect (unlike Tops/Bottoms/Hero, which use each photo's own ratio),
+  // since product cards sit in a uniform grid and need a consistent shape.
+  const [cropFile, setCropFile] = useState(null)
+  const [cropPreviewURL, setCropPreviewURL] = useState('')
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
+
   // No auth check here — Admin.jsx only renders this component once a user
   // is already signed in, so it's safe to fetch immediately on mount.
   useEffect(() => {
@@ -58,6 +86,26 @@ function AdminProducts() {
     fetchArchivedProducts()
     fetchNotes()
   }, [])
+
+  useEffect(() => {
+    if (!cropFile) {
+      setCropPreviewURL('')
+      return
+    }
+    const objectURL = URL.createObjectURL(cropFile)
+    setCropPreviewURL(objectURL)
+    return () => URL.revokeObjectURL(objectURL)
+  }, [cropFile])
+
+  useEffect(() => {
+    if (!croppedPhoto) {
+      setCroppedPreviewURL('')
+      return
+    }
+    const objectURL = URL.createObjectURL(croppedPhoto.large)
+    setCroppedPreviewURL(objectURL)
+    return () => URL.revokeObjectURL(objectURL)
+  }, [croppedPhoto])
 
   async function fetchProducts() {
     const snapshot = await getDocs(collection(db, 'products'))
@@ -83,10 +131,16 @@ function AdminProducts() {
     setPrice('')
     setDescription('')
     setCategory('')
+    setColor('')
+    setSize('')
+    setModelDetail('')
+    setSizeGuide('')
     setNotes('')
-    setImageFile(null)
+    setCroppedPhoto(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     setEditingId(null)
     setExistingImageURL('')
+    setExistingSmallImageURL('')
     setShowAddForm(false)
   }
 
@@ -97,9 +151,14 @@ function AdminProducts() {
     setPrice(String(product.price))
     setDescription(product.description)
     setCategory(product.category)
+    setColor(product.color || '')
+    setSize(product.size || '')
+    setModelDetail(product.modelDetail || '')
+    setSizeGuide(product.sizeGuide || '')
     setNotes(notesMap[product.id] || '')
     setExistingImageURL(product.imageURL)
-    setImageFile(null)
+    setExistingSmallImageURL(product.smallImageURL || product.imageURL || '')
+    setCroppedPhoto(null)
     setError('')
   }
 
@@ -107,22 +166,62 @@ function AdminProducts() {
     resetForm()
   }
 
+  const editModalRef = useModalA11y(Boolean(editingId), handleCancelEdit)
+
+  function handlePhotoSelected(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setCropFile(file)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+  }
+
+  const onCropComplete = useCallback((_croppedArea, pixels) => {
+    setCroppedAreaPixels(pixels)
+  }, [])
+
+  function closeCropModal() {
+    setCropFile(null)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const cropModalRef = useModalA11y(Boolean(cropFile), closeCropModal)
+
+  async function handleConfirmPhotoCrop() {
+    if (!cropFile || !croppedAreaPixels) return
+    const [large, small] = await Promise.all([
+      getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, LARGE_PHOTO_MAX_SIZE),
+      getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, SMALL_PHOTO_MAX_SIZE),
+    ])
+    setCroppedPhoto({ small, large, fileName: cropFile.name })
+    closeCropModal()
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!editingId && !imageFile) {
+    if (!editingId && !croppedPhoto) {
       setError('Please choose an image.')
       return
     }
     setUploading(true)
     setError('')
     try {
-      // Editing without picking a new file keeps the existing image;
-      // picking a new file (or adding a product) uploads a fresh one.
+      // Editing without picking a new photo keeps the existing images;
+      // picking a new one (or adding a product) uploads a fresh pair.
       let imageURL = existingImageURL
-      if (imageFile) {
-        const imageRef = ref(storage, `products/${Date.now()}-${imageFile.name}`)
-        await uploadBytes(imageRef, imageFile, LONG_CACHE_METADATA)
-        imageURL = await getDownloadURL(imageRef)
+      let smallImageURL = existingSmallImageURL
+      if (croppedPhoto) {
+        const largeRef = ref(storage, `products/${Date.now()}-large-${croppedPhoto.fileName}`)
+        const smallRef = ref(storage, `products/${Date.now()}-small-${croppedPhoto.fileName}`)
+        await Promise.all([
+          uploadBytes(largeRef, croppedPhoto.large, LONG_CACHE_METADATA),
+          uploadBytes(smallRef, croppedPhoto.small, LONG_CACHE_METADATA),
+        ])
+        ;[imageURL, smallImageURL] = await Promise.all([getDownloadURL(largeRef), getDownloadURL(smallRef)])
       }
 
       let productId = editingId
@@ -132,7 +231,12 @@ function AdminProducts() {
           price: Number(price),
           description,
           category,
+          color,
+          size,
+          modelDetail,
+          sizeGuide,
           imageURL,
+          smallImageURL,
         })
       } else {
         // addDoc generates the ID, so we don't know it until it resolves —
@@ -142,7 +246,12 @@ function AdminProducts() {
           price: Number(price),
           description,
           category,
+          color,
+          size,
+          modelDetail,
+          sizeGuide,
           imageURL,
+          smallImageURL,
           createdAt: serverTimestamp(),
         })
         productId = newDoc.id
@@ -158,7 +267,6 @@ function AdminProducts() {
       }
 
       resetForm()
-      e.target.reset() // clears the file input, which React can't control directly
       await fetchProducts()
       await fetchNotes()
     } catch {
@@ -216,10 +324,12 @@ function AdminProducts() {
     })
   }
 
-  // Shared by both the "Add product" form (top of page) and the inline
-  // edit form (inside a product's expand panel) — only one of the two is
-  // ever mounted at a time, since editingId hides the add form while set.
+  // Shared by both the "Add product" form (top of page, inline) and the
+  // edit form (rendered inside a popup modal, see editingId below) — only
+  // one of the two is ever visible at a time, since editingId hides the
+  // add form while set.
   function renderForm() {
+    const previewToShow = croppedPreviewURL || existingImageURL
     return (
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {editingId && (
@@ -227,11 +337,18 @@ function AdminProducts() {
             Leave the image field empty to keep the current photo.
           </p>
         )}
+        {previewToShow && (
+          <img
+            src={previewToShow}
+            alt="Product preview"
+            className="w-32 aspect-[4/5] object-cover rounded"
+          />
+        )}
         <input
+          ref={fileInputRef}
           type="file"
           accept="image/*"
-          onChange={(e) => setImageFile(e.target.files[0])}
-          required={!editingId}
+          onChange={handlePhotoSelected}
           className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <input
@@ -262,12 +379,39 @@ function AdminProducts() {
           </option>
           <option value="Tops">Tops</option>
           <option value="Bottoms">Bottoms</option>
+          <option value="Others">Others</option>
         </select>
+        <input
+          type="text"
+          placeholder="Color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+        />
+        <input
+          type="text"
+          placeholder="Size"
+          value={size}
+          onChange={(e) => setSize(e.target.value)}
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+        />
         <textarea
           placeholder="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+        />
+        <textarea
+          placeholder="Model detail"
+          value={modelDetail}
+          onChange={(e) => setModelDetail(e.target.value)}
+          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+        />
+        <textarea
+          placeholder="Size guide"
+          value={sizeGuide}
+          onChange={(e) => setSizeGuide(e.target.value)}
           className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
         <textarea
@@ -319,16 +463,10 @@ function AdminProducts() {
         )}
       </div>
 
-      {editingId ? (
-        <p className="text-sm text-gray-500 mb-8">
-          Finish or cancel editing below before adding a new product.
-        </p>
-      ) : (
-        showAddForm && <div className="mb-8">{renderForm()}</div>
-      )}
+      {showAddForm && <div className="mb-8">{renderForm()}</div>}
 
       <div className="flex items-center gap-2 mb-4">
-        {['All', 'Tops', 'Bottoms'].map((option) => (
+        {['All', 'Tops', 'Bottoms', 'Others'].map((option) => (
           <button
             key={option}
             onClick={() => setCategoryFilter(option)}
@@ -362,6 +500,11 @@ function AdminProducts() {
                     <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
+                    {(product.color || product.size) && (
+                      <p className="text-xs text-gray-400">
+                        {[product.color, product.size].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -376,50 +519,135 @@ function AdminProducts() {
               </div>
               {isExpanded && (
                 <div className="border-t border-gray-200 px-4 py-4">
-                  {isEditingThis ? (
-                    renderForm()
-                  ) : (
-                    <div className="text-sm text-gray-600 flex flex-col gap-2">
-                      <p>
-                        <span className="font-medium text-gray-900">Category:</span>{' '}
-                        {product.category}
-                      </p>
-                      <p>
-                        <span className="font-medium text-gray-900">Description:</span>{' '}
-                        {product.description}
-                      </p>
-                      <p>
-                        <span className="font-medium text-gray-900">Notes:</span>{' '}
-                        {notesMap[product.id] || '—'}
-                      </p>
-                      <div className="self-end flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditClick(product)}
-                          className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleArchive(product)}
-                          className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
-                        >
-                          Archive
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className={`text-sm text-red-600 hover:text-red-800 transition-all duration-300 ease-in-out ${focusRingText}`}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                  <div className="text-sm text-gray-600 flex flex-col gap-2">
+                    <p>
+                      <span className="font-medium text-gray-900">Category:</span>{' '}
+                      {product.category}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Color:</span>{' '}
+                      {product.color || '—'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Size:</span>{' '}
+                      {product.size || '—'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Description:</span>{' '}
+                      {product.description}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Model Detail:</span>{' '}
+                      {product.modelDetail || '—'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Size Guide:</span>{' '}
+                      {product.sizeGuide || '—'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-900">Notes:</span>{' '}
+                      {notesMap[product.id] || '—'}
+                    </p>
+                    <div className="self-end flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditClick(product)}
+                        className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleArchive(product)}
+                        className={`text-sm text-gray-600 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
+                      >
+                        Archive
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className={`text-sm text-red-600 hover:text-red-800 transition-all duration-300 ease-in-out ${focusRingText}`}
+                      >
+                        Delete
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
           )
         })}
       </div>
+
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            ref={editModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit product"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded shadow-lg p-6"
+          >
+            <h3 className="text-lg font-semibold mb-4">Edit product</h3>
+            {renderForm()}
+          </div>
+        </div>
+      )}
+
+      {cropFile && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div
+            ref={cropModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Crop product photo"
+            className="w-full max-w-lg bg-white rounded shadow-lg p-6"
+          >
+            <h3 className="text-lg font-semibold mb-4">Crop product photo</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Drag to move, scroll or pinch to zoom — cropped to a 4:5 ratio to match the product
+              grid.
+            </p>
+            <div className="relative w-full aspect-[4/5] bg-gray-100 rounded overflow-hidden">
+              <Cropper
+                image={cropPreviewURL}
+                crop={crop}
+                zoom={zoom}
+                aspect={4 / 5}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+              Zoom
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 rounded-sm"
+              />
+            </label>
+            <div className="flex items-center gap-4 mt-4">
+              <button
+                type="button"
+                onClick={handleConfirmPhotoCrop}
+                disabled={!croppedAreaPixels}
+                className={`bg-gray-900 text-white rounded px-4 py-2 text-sm hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={closeCropModal}
+                className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRingText}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {archivedProducts.length > 0 && (
         <div className="mt-12">
@@ -440,6 +668,11 @@ function AdminProducts() {
                     <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
+                    {(product.color || product.size) && (
+                      <p className="text-xs text-gray-400">
+                        {[product.color, product.size].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
