@@ -23,10 +23,10 @@ function Hero({ imageURL, sharp = true }) {
       <div className="absolute inset-0 bg-black/30" />
 
       <div className="absolute inset-0 flex flex-col justify-center items-center px-6 md:px-16 text-white text-center">
-        <h1 className="font-serif text-3xl sm:text-5xl md:text-7xl lg:text-8xl tracking-wide">
+        <h1 className="font-serif text-3xl landscape:text-2xl sm:text-5xl md:text-7xl md:landscape:text-7xl lg:text-8xl lg:landscape:text-8xl tracking-wide">
           LOUU THE LABEL
         </h1>
-        <div className="mt-4 flex gap-8 md:gap-16 text-xs md:text-sm tracking-[0.2em] uppercase">
+        <div className="mt-4 landscape:mt-2 md:landscape:mt-4 flex gap-8 md:gap-16 text-xs md:text-sm tracking-[0.2em] uppercase">
           <span>Gentle</span>
           <span>On</span>
           <span>The</span>
@@ -34,7 +34,7 @@ function Hero({ imageURL, sharp = true }) {
         </div>
       </div>
       {/*Product Category && About us*/}
-      <div className="absolute bottom-16 md:bottom-28 left-1/2 -translate-x-1/2 flex items-center gap-8 md:gap-16 lg:gap-24 text-sm md:text-base uppercase tracking-wide text-white">
+      <div className="absolute bottom-16 landscape:bottom-4 md:bottom-28 md:landscape:bottom-28 left-1/2 -translate-x-1/2 flex items-center gap-8 md:gap-16 lg:gap-24 text-sm md:text-base uppercase tracking-wide text-white">
         <Link
           to="/collection"
           className="underline underline-offset-4 leading-tight text-center hover:opacity-80 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
