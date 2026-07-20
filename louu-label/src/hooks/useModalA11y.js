@@ -8,6 +8,15 @@ const FOCUSABLE_SELECTOR =
 // Attach the returned ref to the modal's dialog container (not the
 // backdrop). Moves focus into the modal on open and back to whatever was
 // focused before once it closes.
+//
+// IMPORTANT: onClose MUST be a stable reference (wrap it in useCallback
+// with an empty/stable dep array at the call site). This effect re-runs
+// whenever onClose's identity changes, and every re-run force-focuses the
+// modal's first focusable element — an unmemoized onClose (a plain function
+// recreated every render) causes focus to snap back to that first element
+// on every keystroke/state change while the modal is open, making any
+// field after the first one unusable. Found and fixed this exact bug in
+// AdminProducts.jsx's edit-product modal.
 function useModalA11y(isOpen, onClose) {
   const containerRef = useRef(null)
   const previouslyFocusedRef = useRef(null)

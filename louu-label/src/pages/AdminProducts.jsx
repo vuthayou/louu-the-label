@@ -27,6 +27,60 @@ const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible
 const focusRingText = `${focusRing} rounded-sm`
 const inputFocus = 'focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900'
 
+// A visible label with a red asterisk for required fields — every field in
+// the product form is required except Notes (and Subcategory, which is
+// only required when Category is Bottoms).
+function FieldLabel({ text, required }) {
+  return (
+    <label className="text-sm font-medium text-gray-700 mb-2 block">
+      {text}
+      {required && <span className="text-red-600"> *</span>}
+    </label>
+  )
+}
+
+// Small uppercase divider heading between groups of related fields in the
+// product form, same visual language as the category label already used
+// elsewhere (e.g. product list rows).
+function SectionHeading({ text }) {
+  return <h4 className="text-xs font-medium uppercase tracking-wide text-gray-400">{text}</h4>
+}
+
+// A row of toggle buttons for a single-choice field (Category, Subcategory)
+// — same active/inactive visual language as the category filter buttons
+// further down this file, just reused here for the form itself instead of
+// a <select>. selected is a plain string, not an array.
+function ChoiceButtons({ options, selected, onSelect, disabled }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          disabled={disabled}
+          onClick={() => onSelect(option)}
+          className={`text-sm rounded-lg px-4 py-2 transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed ${focusRing} ${
+            selected === option
+              ? 'bg-gray-900 text-white'
+              : 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Size is genuinely multi-select (a product can be offered in more than one
+// size), stored as an array — this formats it for display wherever it's
+// read-only, and stays backward-compatible with the old single-string shape
+// from before this change.
+function formatSize(size) {
+  if (Array.isArray(size)) return size.join(', ')
+  return size || ''
+}
+
 function AdminProducts() {
   const [products, setProducts] = useState([])
   const [archivedProducts, setArchivedProducts] = useState([])
@@ -40,8 +94,12 @@ function AdminProducts() {
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  // Only meaningful when category is "Bottoms" — cleared automatically if
+  // the category changes away from Bottoms (see the category select below).
+  const [subcategory, setSubcategory] = useState('')
   const [color, setColor] = useState('')
-  const [size, setSize] = useState('')
+  // Multi-select — a product can be offered in more than one size.
+  const [size, setSize] = useState([])
   const [modelDetail, setModelDetail] = useState('')
   const [sizeGuide, setSizeGuide] = useState('')
   const [notes, setNotes] = useState('')
@@ -131,8 +189,9 @@ function AdminProducts() {
     setPrice('')
     setDescription('')
     setCategory('')
+    setSubcategory('')
     setColor('')
-    setSize('')
+    setSize([])
     setModelDetail('')
     setSizeGuide('')
     setNotes('')
@@ -151,8 +210,11 @@ function AdminProducts() {
     setPrice(String(product.price))
     setDescription(product.description)
     setCategory(product.category)
+    setSubcategory(product.subcategory || '')
     setColor(product.color || '')
-    setSize(product.size || '')
+    // Old products may still have size saved as a single string — fold it
+    // into the new array shape rather than losing it.
+    setSize(Array.isArray(product.size) ? product.size : product.size ? [product.size] : [])
     setModelDetail(product.modelDetail || '')
     setSizeGuide(product.sizeGuide || '')
     setNotes(notesMap[product.id] || '')
@@ -162,9 +224,10 @@ function AdminProducts() {
     setError('')
   }
 
-  function handleCancelEdit() {
+  const handleCancelEdit = useCallback(() => {
     resetForm()
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const editModalRef = useModalA11y(Boolean(editingId), handleCancelEdit)
 
@@ -181,13 +244,13 @@ function AdminProducts() {
     setCroppedAreaPixels(pixels)
   }, [])
 
-  function closeCropModal() {
+  const closeCropModal = useCallback(() => {
     setCropFile(null)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
     setCroppedAreaPixels(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
-  }
+  }, [])
 
   const cropModalRef = useModalA11y(Boolean(cropFile), closeCropModal)
 
@@ -205,6 +268,21 @@ function AdminProducts() {
     e.preventDefault()
     if (!editingId && !croppedPhoto) {
       setError('Please choose an image.')
+      return
+    }
+    // Category, Subcategory, and Size are button/checkbox groups, not
+    // native <select>/<input required> elements, so they need their own
+    // validation instead of relying on browser form validation.
+    if (!category) {
+      setError('Please select a category.')
+      return
+    }
+    if (category === 'Bottoms' && !subcategory) {
+      setError('Please select a subcategory.')
+      return
+    }
+    if (size.length === 0) {
+      setError('Please select at least one size.')
       return
     }
     setUploading(true)
@@ -231,6 +309,7 @@ function AdminProducts() {
           price: Number(price),
           description,
           category,
+          subcategory,
           color,
           size,
           modelDetail,
@@ -246,6 +325,7 @@ function AdminProducts() {
           price: Number(price),
           description,
           category,
+          subcategory,
           color,
           size,
           modelDetail,
@@ -331,105 +411,178 @@ function AdminProducts() {
   function renderForm() {
     const previewToShow = croppedPreviewURL || existingImageURL
     return (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {editingId && (
-          <p className="text-sm text-gray-500">
-            Leave the image field empty to keep the current photo.
-          </p>
-        )}
-        {previewToShow && (
-          <img
-            src={previewToShow}
-            alt="Product preview"
-            className="w-32 aspect-[4/5] object-cover rounded"
-          />
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handlePhotoSelected}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <div className="flex gap-4">
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Price"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
-            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-          />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            required
-            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-          >
-            <option value="" disabled>
-              Select category
-            </option>
-            <option value="Tops">Tops</option>
-            <option value="Bottoms">Bottoms</option>
-            <option value="Others">Others</option>
-          </select>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+        <div className="flex flex-col gap-4">
+          <SectionHeading text="Photo" />
+          {editingId && (
+            <p className="text-sm text-gray-500">
+              Leave the image field empty to keep the current photo.
+            </p>
+          )}
+          <div className="flex items-start gap-4 border border-gray-200 rounded-lg p-4">
+            {previewToShow ? (
+              <img
+                src={previewToShow}
+                alt="Product preview"
+                className="w-24 aspect-[4/5] object-cover rounded-lg flex-shrink-0"
+              />
+            ) : (
+              <div className="w-24 aspect-[4/5] rounded-lg bg-gray-100 flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <FieldLabel text="Photo" required={!editingId} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoSelected}
+                className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <input
-            type="text"
-            placeholder="Color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-          />
-          <input
-            type="text"
-            placeholder="Size"
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
-            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-          />
+
+        <div className="flex flex-col gap-4">
+          <SectionHeading text="Basic info" />
+          <div>
+            <FieldLabel text="Name" required />
+            <input
+              type="text"
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+          <div>
+            <FieldLabel text="Price" required />
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              required
+              className={`w-full max-w-xs border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1 min-w-0">
+              <FieldLabel text="Category" required />
+              <ChoiceButtons
+                options={['Tops', 'Bottoms', 'Others']}
+                selected={category}
+                onSelect={(option) => {
+                  setCategory(option)
+                  if (option !== 'Bottoms') setSubcategory('')
+                }}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <FieldLabel text="Subcategory" required={category === 'Bottoms'} />
+              <ChoiceButtons
+                options={['Skirts', 'Trousers']}
+                selected={subcategory}
+                onSelect={setSubcategory}
+                disabled={category !== 'Bottoms'}
+              />
+              <p className="text-xs text-gray-400 mt-2">If Bottoms is selected</p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1 min-w-0">
+              <FieldLabel text="Color" required />
+              <input
+                type="text"
+                placeholder="Color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                required
+                className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <FieldLabel text="Size" required />
+              <div className="flex flex-wrap gap-4 py-2">
+                {['S', 'M', 'L'].map((option) => (
+                  <label key={option} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={size.includes(option)}
+                      onChange={() =>
+                        setSize((prev) =>
+                          prev.includes(option) ? prev.filter((s) => s !== option) : [...prev, option],
+                        )
+                      }
+                      className={`rounded-sm ${inputFocus}`}
+                    />
+                    {option}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <textarea
-          placeholder="Model detail"
-          value={modelDetail}
-          onChange={(e) => setModelDetail(e.target.value)}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <textarea
-          placeholder="Size guide"
-          value={sizeGuide}
-          onChange={(e) => setSizeGuide(e.target.value)}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <textarea
-          placeholder="Notes (admin-only, never shown to customers)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
+
+        <div className="flex flex-col gap-4">
+          <SectionHeading text="Content" />
+          <div>
+            <FieldLabel text="Description" required />
+            <textarea
+              placeholder="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+              rows={3}
+              className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+          <div>
+            <FieldLabel text="Model detail" required />
+            <textarea
+              placeholder="Model detail"
+              value={modelDetail}
+              onChange={(e) => setModelDetail(e.target.value)}
+              required
+              rows={2}
+              className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+          <div>
+            <FieldLabel text="Size guide" required />
+            <textarea
+              placeholder="Size guide"
+              value={sizeGuide}
+              onChange={(e) => setSizeGuide(e.target.value)}
+              required
+              rows={3}
+              className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <SectionHeading text="Admin only — never shown to customers" />
+          <div>
+            <FieldLabel text="Notes" required={false} />
+            <textarea
+              placeholder="Notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className={`w-full border border-gray-300 rounded-lg px-4 py-2 bg-white transition-all duration-300 ease-in-out ${inputFocus}`}
+            />
+          </div>
+        </div>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-4 border-t border-gray-200 pt-6">
           <button
             type="submit"
             disabled={uploading}
-            className={`bg-gray-900 text-white rounded px-4 py-2 hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
+            className={`bg-gray-900 text-white rounded-lg px-4 py-2 hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
           >
             {uploading
               ? editingId
@@ -501,12 +654,14 @@ function AdminProducts() {
                     className="w-12 h-12 object-cover rounded"
                   />
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">
+                      {[product.category, product.subcategory].filter(Boolean).join(' · ')}
+                    </p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
-                    {(product.color || product.size) && (
+                    {(product.color || formatSize(product.size)) && (
                       <p className="text-xs text-gray-400">
-                        {[product.color, product.size].filter(Boolean).join(' · ')}
+                        {[product.color, formatSize(product.size)].filter(Boolean).join(' · ')}
                       </p>
                     )}
                   </div>
@@ -529,12 +684,16 @@ function AdminProducts() {
                       {product.category}
                     </p>
                     <p>
+                      <span className="font-medium text-gray-900">Subcategory:</span>{' '}
+                      {product.subcategory || '—'}
+                    </p>
+                    <p>
                       <span className="font-medium text-gray-900">Color:</span>{' '}
                       {product.color || '—'}
                     </p>
                     <p>
                       <span className="font-medium text-gray-900">Size:</span>{' '}
-                      {product.size || '—'}
+                      {formatSize(product.size) || '—'}
                     </p>
                     <p>
                       <span className="font-medium text-gray-900">Description:</span>{' '}
@@ -669,12 +828,14 @@ function AdminProducts() {
                     className="w-12 h-12 object-cover rounded"
                   />
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">
+                      {[product.category, product.subcategory].filter(Boolean).join(' · ')}
+                    </p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
-                    {(product.color || product.size) && (
+                    {(product.color || formatSize(product.size)) && (
                       <p className="text-xs text-gray-400">
-                        {[product.color, product.size].filter(Boolean).join(' · ')}
+                        {[product.color, formatSize(product.size)].filter(Boolean).join(' · ')}
                       </p>
                     )}
                   </div>
