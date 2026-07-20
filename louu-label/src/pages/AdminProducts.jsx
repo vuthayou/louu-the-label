@@ -359,42 +359,46 @@ function AdminProducts() {
           required
           className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
-        <input
-          type="number"
-          step="0.01"
-          placeholder="Price"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          required
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          required
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        >
-          <option value="" disabled>
-            Select category
-          </option>
-          <option value="Tops">Tops</option>
-          <option value="Bottoms">Bottoms</option>
-          <option value="Others">Others</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
-        <input
-          type="text"
-          placeholder="Size"
-          value={size}
-          onChange={(e) => setSize(e.target.value)}
-          className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
+        <div className="flex gap-4">
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Price"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            required
+            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+          />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            required
+            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+          >
+            <option value="" disabled>
+              Select category
+            </option>
+            <option value="Tops">Tops</option>
+            <option value="Bottoms">Bottoms</option>
+            <option value="Others">Others</option>
+          </select>
+        </div>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            placeholder="Color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+          />
+          <input
+            type="text"
+            placeholder="Size"
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            className={`flex-1 min-w-0 border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
+          />
+        </div>
         <textarea
           placeholder="Description"
           value={description}

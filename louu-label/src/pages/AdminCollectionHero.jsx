@@ -147,6 +147,19 @@ function AdminCollectionHero() {
     }
   }
 
+  async function handleRemovePhoto(category, index) {
+    if (!window.confirm('Remove this photo? This cannot be undone.')) return
+    if (category === 'tops') {
+      const nextPhotos = topsPhotos.filter((_, i) => i !== index)
+      setTopsPhotos(nextPhotos)
+      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
+    } else {
+      const nextPhotos = bottomsPhotos.filter((_, i) => i !== index)
+      setBottomsPhotos(nextPhotos)
+      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhotos: nextPhotos }, { merge: true })
+    }
+  }
+
   return (
     <div>
       <HeroImageManager settingId="collectionHero" storagePrefix="site/collection-hero" label="Collection" />
@@ -200,6 +213,7 @@ function AdminCollectionHero() {
           keyPrefix="tops"
           uploadingSlot={uploadingSlot}
           onSelectFile={(index, file) => openCropForSlot('tops', index, file)}
+          onRemove={(index) => handleRemovePhoto('tops', index)}
         />
       </div>
 
@@ -215,6 +229,7 @@ function AdminCollectionHero() {
           keyPrefix="bottoms"
           uploadingSlot={uploadingSlot}
           onSelectFile={(index, file) => openCropForSlot('bottoms', index, file)}
+          onRemove={(index) => handleRemovePhoto('bottoms', index)}
         />
       </div>
 
