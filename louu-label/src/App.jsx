@@ -10,6 +10,7 @@ const Home = lazy(() => import('./pages/Home'))
 const Catalog = lazy(() => import('./pages/Catalog'))
 const About = lazy(() => import('./pages/About'))
 const Admin = lazy(() => import('./pages/Admin'))
+const CategoryComingSoon = lazy(() => import('./pages/CategoryComingSoon'))
 
 function App() {
   // A successful render here means chunk loading is working — clear the
@@ -25,6 +26,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/collection" element={<Catalog />} />
+          <Route path="/collection/tops" element={<CategoryComingSoon category="Tops" />} />
+          <Route path="/collection/bottoms" element={<CategoryComingSoon category="Bottoms" />} />
           <Route path="/about" element={<About />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>

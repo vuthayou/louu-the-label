@@ -25,6 +25,9 @@ function AdminProducts() {
   const [archivedProducts, setArchivedProducts] = useState([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  // Filters the main products list only — Add/Edit and Archived are
+  // unaffected.
+  const [categoryFilter, setCategoryFilter] = useState('All')
 
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
@@ -248,14 +251,18 @@ function AdminProducts() {
           required
           className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
         />
-        <input
-          type="text"
-          placeholder="Category"
+        <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           required
           className={`border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-        />
+        >
+          <option value="" disabled>
+            Select category
+          </option>
+          <option value="Tops">Tops</option>
+          <option value="Bottoms">Bottoms</option>
+        </select>
         <textarea
           placeholder="Description"
           value={description}
@@ -320,8 +327,26 @@ function AdminProducts() {
         showAddForm && <div className="mb-8">{renderForm()}</div>
       )}
 
+      <div className="flex items-center gap-2 mb-4">
+        {['All', 'Tops', 'Bottoms'].map((option) => (
+          <button
+            key={option}
+            onClick={() => setCategoryFilter(option)}
+            className={`text-sm rounded px-4 py-2 transition-all duration-300 ease-in-out ${focusRing} ${
+              categoryFilter === option
+                ? 'bg-gray-900 text-white'
+                : 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col gap-2">
-        {products.map((product) => {
+        {products
+          .filter((product) => categoryFilter === 'All' || product.category === categoryFilter)
+          .map((product) => {
           const isEditingThis = editingId === product.id
           const isExpanded = expandedIds.has(product.id) || isEditingThis
           return (
@@ -334,6 +359,7 @@ function AdminProducts() {
                     className="w-12 h-12 object-cover rounded"
                   />
                   <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
                   </div>
@@ -411,6 +437,7 @@ function AdminProducts() {
                     className="w-12 h-12 object-cover rounded"
                   />
                   <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">{product.category}</p>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-gray-500">${product.price}</p>
                   </div>

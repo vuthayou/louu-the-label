@@ -1,4 +1,8 @@
+import { Link } from 'react-router-dom'
 import { getPhotoURL } from '../utils/photoUrl'
+
+const focusRingText =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
 
 // A single-row photo layout for a category — title card + photos all share
 // one fixed height, but each keeps its own natural width. For real photos
@@ -25,6 +29,7 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
   const realPhotos = photos.filter(Boolean)
   const hasRealPhotos = realPhotos.length > 0
   const items = hasRealPhotos ? realPhotos : PLACEHOLDERS
+  const exploreLink = `/collection/${title.toLowerCase()}`
 
   return (
     <section className="min-h-svh flex items-center pt-16 pb-24">
@@ -34,6 +39,12 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
           <div>
             <h2 className="text-2xl font-semibold mb-4">{title}</h2>
             <p className="text-gray-500">{description}</p>
+            <Link
+              to={exploreLink}
+              className={`inline-block mt-4 text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+            >
+              Explore {title}
+            </Link>
           </div>
           <div className={`flex items-stretch gap-4 flex-nowrap overflow-x-auto ${MOBILE_ROW_HEIGHT}`}>
             {items.map((item, i) =>
@@ -62,6 +73,12 @@ function ScatteredCategorySection({ title, description, photos = [] }) {
           >
             <h2 className="text-2xl font-semibold mb-2">{title}</h2>
             <p className="text-gray-500 text-sm">{description}</p>
+            <Link
+              to={exploreLink}
+              className={`inline-block mt-4 text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+            >
+              Explore {title}
+            </Link>
           </div>
           {items.map((item, i) =>
             hasRealPhotos ? (
