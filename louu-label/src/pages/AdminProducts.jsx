@@ -21,6 +21,7 @@ import {
 } from '../utils/cropImage'
 import useModalA11y from '../hooks/useModalA11y'
 import PhotoGridManager from '../components/PhotoGridManager'
+import { formatSize } from '../utils/formatSize'
 
 const MAX_GALLERY_PHOTOS = 8
 
@@ -73,15 +74,6 @@ function ChoiceButtons({ options, selected, onSelect, disabled }) {
       ))}
     </div>
   )
-}
-
-// Size is genuinely multi-select (a product can be offered in more than one
-// size), stored as an array — this formats it for display wherever it's
-// read-only, and stays backward-compatible with the old single-string shape
-// from before this change.
-function formatSize(size) {
-  if (Array.isArray(size)) return size.join(', ')
-  return size || ''
 }
 
 function AdminProducts() {
