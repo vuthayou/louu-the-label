@@ -7,7 +7,7 @@ import { formatSize } from '../utils/formatSize'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import LoadingScreen from '../components/LoadingScreen'
-import ScatteredCategorySection from '../components/ScatteredCategorySection'
+import ProductGallery from '../components/ProductGallery'
 
 // Main photo (the one shown on the card that was clicked to get here)
 // always comes first, followed by any additional gallery photos — main
@@ -61,44 +61,44 @@ function ProductDetail() {
     <div>
       <Navbar />
 
-      <div className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 pt-16 pb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold mb-4">{product.name}</h1>
-        <p className="text-lg font-semibold text-gray-900 mb-4">${product.price}</p>
-        {(product.color || sizeText) && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {product.color && (
-              <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
-                Color: {product.color}
-              </span>
-            )}
-            {sizeText && (
-              <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
-                Size: {sizeText}
-              </span>
-            )}
-          </div>
-        )}
-        {product.description && <p className="text-gray-500 mb-4">{product.description}</p>}
-        {product.modelDetail && (
-          <div className="mb-4">
-            <h2 className="text-sm font-medium text-gray-700 mb-2">Model Detail</h2>
-            <p className="text-gray-500">{product.modelDetail}</p>
-          </div>
-        )}
-        {product.sizeGuide && (
-          <div>
-            <h2 className="text-sm font-medium text-gray-700 mb-2">Size Guide</h2>
-            <p className="text-gray-500">{product.sizeGuide}</p>
-          </div>
-        )}
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 py-16 md:flex md:items-start md:gap-8">
+        <div className="md:w-3/5 md:min-w-0">
+          <ProductGallery photos={getProductPhotos(product)} />
+        </div>
+
+        <div className="mt-8 md:mt-0 md:w-2/5">
+          <h1 className="text-2xl md:text-3xl font-semibold mb-4">{product.name}</h1>
+          <p className="text-lg font-semibold text-gray-900 mb-4">${product.price}</p>
+          {(product.color || sizeText) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {product.color && (
+                <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
+                  Color: {product.color}
+                </span>
+              )}
+              {sizeText && (
+                <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
+                  Size: {sizeText}
+                </span>
+              )}
+            </div>
+          )}
+          {product.description && <p className="text-gray-500 mb-4">{product.description}</p>}
+          {product.modelDetail && (
+            <div className="mb-4">
+              <h2 className="text-sm font-medium text-gray-700 mb-2">Model Detail</h2>
+              <p className="text-gray-500">{product.modelDetail}</p>
+            </div>
+          )}
+          {product.sizeGuide && (
+            <div>
+              <h2 className="text-sm font-medium text-gray-700 mb-2">Size Guide</h2>
+              <p className="text-gray-500">{product.sizeGuide}</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <ScatteredCategorySection
-        title={product.name}
-        description=""
-        photos={getProductPhotos(product)}
-        showExploreLink={false}
-      />
       <Footer />
     </div>
   )
