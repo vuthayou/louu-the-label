@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { getPhotoURL } from '../utils/photoUrl'
 
 // Product detail's photo row — separate from ScatteredCategorySection
@@ -8,12 +9,33 @@ const ROW_HEIGHT = 'h-[60vh]'
 
 function ProductGallery({ photos = [] }) {
   const realPhotos = photos.filter(Boolean)
+  const scrollRef = useRef(null)
+  const [hasScrolled, setHasScrolled] = useState(false)
+
+  // Chevron is just a first-visit hint — once the user scrolls at all, they
+  // already know the row scrolls, so it hides for good rather than
+  // reappearing/disappearing as they scroll back and forth.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    function handleScroll() {
+      setHasScrolled(true)
+      el.removeEventListener('scroll', handleScroll)
+    }
+
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
 
   if (realPhotos.length === 0) return null
 
   return (
     <div className="relative">
-      <div className={`flex items-stretch gap-4 md:gap-6 flex-nowrap overflow-x-auto ${ROW_HEIGHT}`}>
+      <div
+        ref={scrollRef}
+        className={`flex items-stretch gap-4 md:gap-6 flex-nowrap overflow-x-auto ${ROW_HEIGHT}`}
+      >
         {realPhotos.map((photo, i) => (
           <img
             key={i}
@@ -26,19 +48,21 @@ function ProductGallery({ photos = [] }) {
       </div>
       {realPhotos.length > 1 && (
         <div className="pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center bg-gradient-to-l from-white/30 to-transparent md:w-24">
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="ml-auto mr-4 h-8 w-8 text-gray-400 animate-[gallery-hint-nudge_1.6s_ease-in-out_infinite]"
-          >
-            <polyline points="9 6 15 12 9 18" />
-          </svg>
+          {!hasScrolled && (
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="ml-auto mr-4 h-8 w-8 text-gray-400 animate-[gallery-hint-nudge_1.6s_ease-in-out_infinite]"
+            >
+              <polyline points="9 6 15 12 9 18" />
+            </svg>
+          )}
         </div>
       )}
     </div>
