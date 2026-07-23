@@ -2,11 +2,6 @@ import { useEffect, useRef } from 'react'
 import { getPhotoURL } from '../utils/photoUrl'
 import useModalA11y from '../hooks/useModalA11y'
 
-// Dark backdrop needs a light-colored focus ring to stay visible/AA-contrast
-// compliant — the site's usual gray-900 ring convention would be invisible here.
-const closeButtonFocusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900'
-
 // Full-screen photo viewer for ProductDetail: click any thumbnail in
 // ProductGallery to open here, scrolled to that photo, then scroll
 // vertically to browse the rest of the product's photos.
@@ -43,7 +38,7 @@ function PhotoLightbox({ photos, initialIndex, onClose }) {
         type="button"
         onClick={onClose}
         aria-label="Close photo view"
-        className={`fixed top-4 right-4 md:top-8 md:right-8 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white transition-all duration-300 ease-in-out hover:bg-black/50 ${closeButtonFocusRing}`}
+        className="fixed top-4 right-4 md:top-8 md:right-8 z-10 flex h-12 w-12 items-center justify-center border-0 bg-transparent text-white outline-none transition-all duration-300 ease-in-out hover:opacity-70"
       >
         <svg
           aria-hidden="true"
