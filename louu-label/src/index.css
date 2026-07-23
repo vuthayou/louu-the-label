@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@keyframes gallery-hint-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
