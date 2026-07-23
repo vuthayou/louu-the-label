@@ -61,7 +61,7 @@ function PhotoLightbox({ photos, initialIndex, onClose }) {
         </svg>
       </button>
 
-      <div className="flex flex-col items-center gap-8 px-4 py-16 md:px-8">
+      <div className="flex flex-col items-center gap-2 px-4 py-16 md:px-8">
         {photos.map((photo, i) => (
           <img
             key={i}
