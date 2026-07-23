@@ -56,14 +56,14 @@ function PhotoLightbox({ photos, initialIndex, onClose }) {
         </svg>
       </button>
 
-      <div className="flex flex-col items-center gap-2 px-4 py-16 md:px-8">
+      <div className="flex flex-col items-center gap-2 py-16">
         {photos.map((photo, i) => (
           <img
             key={i}
             ref={(node) => (itemRefs.current[i] = node)}
             src={getPhotoURL(photo, 'large')}
             alt=""
-            className="max-h-[90vh] w-auto max-w-full object-contain"
+            className="max-h-[100vh] w-auto max-w-full object-contain"
           />
         ))}
       </div>
