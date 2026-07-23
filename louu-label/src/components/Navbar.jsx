@@ -18,7 +18,7 @@ function Navbar() {
             to="/collection"
             className={`hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
           >
-            Collection
+            Gallery
           </Link>
           <Link
             to="/about"

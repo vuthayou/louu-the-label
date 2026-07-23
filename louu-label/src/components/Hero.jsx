@@ -41,7 +41,7 @@ function Hero({ imageURL, sharp = true }) {
         >
           Product
           <br />
-          Category
+          Gallery
         </Link>
         <Link
           to="/about"

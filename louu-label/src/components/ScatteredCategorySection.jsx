@@ -25,11 +25,10 @@ const PLACEHOLDERS = [
   { color: 'bg-yellow-200', width: 'w-56' },
 ]
 
-function ScatteredCategorySection({ title, description, photos = [], showExploreLink = true }) {
+function ScatteredCategorySection({ title, description, photos = [], links = [] }) {
   const realPhotos = photos.filter(Boolean)
   const hasRealPhotos = realPhotos.length > 0
   const items = hasRealPhotos ? realPhotos : PLACEHOLDERS
-  const exploreLink = `/collection/${title.toLowerCase()}`
 
   return (
     <section className="min-h-svh flex items-center pt-16 pb-24">
@@ -39,13 +38,18 @@ function ScatteredCategorySection({ title, description, photos = [], showExplore
           <div>
             <h2 className="text-2xl font-semibold mb-4">{title}</h2>
             <p className="text-gray-500">{description}</p>
-            {showExploreLink && (
-              <Link
-                to={exploreLink}
-                className={`inline-block mt-4 text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
-              >
-                Explore {title}
-              </Link>
+            {links.length > 0 && (
+              <div className="flex flex-col gap-2 mt-4">
+                {links.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`inline-block text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
           <div className={`flex items-stretch gap-4 flex-nowrap overflow-x-auto ${MOBILE_ROW_HEIGHT}`}>
@@ -75,13 +79,18 @@ function ScatteredCategorySection({ title, description, photos = [], showExplore
           >
             <h2 className="text-2xl font-semibold mb-2">{title}</h2>
             <p className="text-gray-500 text-sm">{description}</p>
-            {showExploreLink && (
-              <Link
-                to={exploreLink}
-                className={`inline-block mt-4 text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
-              >
-                Explore {title}
-              </Link>
+            {links.length > 0 && (
+              <div className="flex flex-col gap-2 mt-4">
+                {links.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`inline-block text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
           {items.map((item, i) =>

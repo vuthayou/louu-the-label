@@ -10,28 +10,47 @@ import LoadingScreen from '../components/LoadingScreen'
 
 const FALLBACK_DESCRIPTION_TOPS =
   'Placeholder introduction text — a short teaser about the Tops collection goes here.'
-const FALLBACK_DESCRIPTION_BOTTOMS =
-  'Placeholder introduction text — a short teaser about the Bottoms collection goes here.'
+
+const PRODUCTS_LINKS = [
+  { label: 'Explore Tops', to: '/collection/tops' },
+  { label: 'Explore Bottoms', to: '/collection/bottoms' },
+]
+
+// Tops and Bottoms photos alternate (tops[0], bottoms[0], tops[1], ...) so
+// the merged row doesn't just show one category's photos before the
+// other's — any leftover once the shorter list runs out is tacked on at
+// the end.
+function interleavePhotos(a, b) {
+  const merged = []
+  const maxLength = Math.max(a.length, b.length)
+  for (let i = 0; i < maxLength; i++) {
+    if (a[i]) merged.push(a[i])
+    if (b[i]) merged.push(b[i])
+  }
+  return merged
+}
 
 // Normalizes a raw collectionLayout doc (or null, if none cached/saved yet)
-// into the four values the page actually needs — used for both cached and
+// into the values the page actually needs — used for both cached and
 // freshly-fetched data so the fallback/migration logic only lives once.
+// bottomsDescription still exists in the Firestore doc (Admin's "Bottoms
+// description" field is left in place for possible future use), but this
+// page now shows one combined "Our Products" section using only
+// topsDescription as its shared description, so it isn't read here.
 function deriveLayout(data) {
   let topsDescription = FALLBACK_DESCRIPTION_TOPS
   let topsPhotos = []
-  let bottomsDescription = FALLBACK_DESCRIPTION_BOTTOMS
   let bottomsPhotos = []
   if (data) {
     if (data.topsDescription) topsDescription = data.topsDescription
     if (data.topsPhotos) topsPhotos = data.topsPhotos
-    if (data.bottomsDescription) bottomsDescription = data.bottomsDescription
     // bottomsPhotos is the current field; bottomsPhoto (singular) was the
     // old single-photo field, kept as a fallback so content saved before
     // this change still shows up.
     if (data.bottomsPhotos) bottomsPhotos = data.bottomsPhotos
     else if (data.bottomsPhoto) bottomsPhotos = [data.bottomsPhoto]
   }
-  return { topsDescription, topsPhotos, bottomsDescription, bottomsPhotos }
+  return { topsDescription, topsPhotos, bottomsPhotos }
 }
 
 // Below Tailwind's md breakpoint (768px, same one used site-wide), prefer
@@ -55,7 +74,6 @@ function Catalog() {
   // anything if it's changed since last time.
   const [topsDescription, setTopsDescription] = useState(initialLayout.topsDescription)
   const [topsPhotos, setTopsPhotos] = useState(initialLayout.topsPhotos)
-  const [bottomsDescription, setBottomsDescription] = useState(initialLayout.bottomsDescription)
   const [bottomsPhotos, setBottomsPhotos] = useState(initialLayout.bottomsPhotos)
   // Same reasoning as Home's hero photo: a repeat visit goes straight to
   // the full cached photo, already sharp, trusting the browser's own HTTP
@@ -83,7 +101,6 @@ function Catalog() {
       const layout = deriveLayout(layoutData)
       setTopsDescription(layout.topsDescription)
       setTopsPhotos(layout.topsPhotos)
-      setBottomsDescription(layout.bottomsDescription)
       setBottomsPhotos(layout.bottomsPhotos)
 
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
@@ -133,8 +150,12 @@ function Catalog() {
         />
       )}
       <Navbar />
-      <ScatteredCategorySection title="Tops" description={topsDescription} photos={topsPhotos} />
-      <ScatteredCategorySection title="Bottoms" description={bottomsDescription} photos={bottomsPhotos} />
+      <ScatteredCategorySection
+        title="Our Products"
+        description={topsDescription}
+        photos={interleavePhotos(topsPhotos, bottomsPhotos)}
+        links={PRODUCTS_LINKS}
+      />
       <Footer />
     </div>
   )
