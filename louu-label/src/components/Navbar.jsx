@@ -21,6 +21,18 @@ function Navbar() {
             Gallery
           </Link>
           <Link
+            to="/collection/tops"
+            className={`hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
+          >
+            Tops
+          </Link>
+          <Link
+            to="/collection/bottoms"
+            className={`hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
+          >
+            Bottoms
+          </Link>
+          <Link
             to="/about"
             className={`hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
           >
