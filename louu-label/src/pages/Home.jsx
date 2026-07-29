@@ -77,8 +77,8 @@ function Home() {
 
   return (
     <div>
+      <Navbar />
       <div className="h-dvh flex flex-col">
-        <Navbar />
         <Hero imageURL={heroDisplayURL} sharp={heroSharp} />
       </div>
       <AboutPreview />
