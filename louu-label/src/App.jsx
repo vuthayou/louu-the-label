@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import ChunkErrorBoundary from './components/ChunkErrorBoundary'
+import ScrollToTop from './components/ScrollToTop'
 
 // lazy() + dynamic import() tells Vite to build each page as its own
 // separate file, only downloaded when a visitor actually navigates there —
@@ -23,6 +24,7 @@ function App() {
 
   return (
     <ChunkErrorBoundary>
+      <ScrollToTop />
       <Suspense fallback={<p className="text-center py-12 text-gray-500">Loading...</p>}>
         <Routes>
           <Route path="/" element={<Home />} />
