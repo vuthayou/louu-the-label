@@ -5,7 +5,7 @@ const focusRing =
 
 function Navbar() {
   return (
-    <header className="sticky top-0 bg-white border-b border-gray-200">
+    <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
       <div className="px-4 md:px-6 lg:px-8 py-4 flex items-center justify-between">
         <Link
           to="/"
