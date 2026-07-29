@@ -25,7 +25,6 @@ const MAX_PHOTOS_PER_CATEGORY = 8
 function AdminCollectionHero() {
   const [topsDescription, setTopsDescription] = useState('')
   const [topsPhotos, setTopsPhotos] = useState([])
-  const [bottomsDescription, setBottomsDescription] = useState('')
   const [bottomsPhotos, setBottomsPhotos] = useState([])
 
   const [descSaving, setDescSaving] = useState(false)
@@ -51,7 +50,6 @@ function AdminCollectionHero() {
         const data = snapshot.data()
         setTopsDescription(data.topsDescription || '')
         setTopsPhotos(data.topsPhotos || [])
-        setBottomsDescription(data.bottomsDescription || '')
         // bottomsPhoto (singular) was the old single-photo field — fold it
         // into the new array so a photo uploaded before this change doesn't
         // just disappear.
@@ -85,11 +83,7 @@ function AdminCollectionHero() {
     e.preventDefault()
     setDescSaving(true)
     setDescSaved(false)
-    await setDoc(
-      doc(db, 'siteSettings', 'collectionLayout'),
-      { topsDescription, bottomsDescription },
-      { merge: true },
-    )
+    await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsDescription }, { merge: true })
     setDescSaving(false)
     setDescSaved(true)
   }
@@ -167,22 +161,11 @@ function AdminCollectionHero() {
       <form onSubmit={handleSaveDescriptions} className="mt-12 max-w-md flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Section Content</h2>
         <div>
-          <label className="text-sm text-gray-500 mb-2 block">Tops description</label>
+          <label className="text-sm text-gray-500 mb-2 block">Description</label>
           <textarea
             value={topsDescription}
             onChange={(e) => {
               setTopsDescription(e.target.value)
-              setDescSaved(false)
-            }}
-            className={`w-full border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
-          />
-        </div>
-        <div>
-          <label className="text-sm text-gray-500 mb-2 block">Bottoms description</label>
-          <textarea
-            value={bottomsDescription}
-            onChange={(e) => {
-              setBottomsDescription(e.target.value)
               setDescSaved(false)
             }}
             className={`w-full border border-gray-300 rounded px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
