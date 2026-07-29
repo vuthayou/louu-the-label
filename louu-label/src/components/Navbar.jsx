@@ -9,9 +9,9 @@ function Navbar() {
       <div className="px-4 md:px-6 lg:px-8 py-4 flex items-center justify-between">
         <Link
           to="/"
-          className={`text-xl font-bold tracking-wide transition-all duration-300 ease-in-out ${focusRing}`}
+          className={`font-serif text-xl tracking-wide transition-all duration-300 ease-in-out ${focusRing}`}
         >
-          Louu
+          LOUU THE LABEL
         </Link>
         <nav className="flex items-center gap-6 text-sm text-gray-600">
           <Link

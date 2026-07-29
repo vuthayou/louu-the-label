@@ -1,7 +1,19 @@
 @import "tailwindcss";
 
+/* Purchased commercial license — src/assets/fonts/Perandory-Regular.otf,
+   license PDF kept at Font/COMMERCIAL/LICENSE at the repo's parent folder.
+   Uppercase-only glyph set (by design), so only use it on all-caps text. */
+@font-face {
+  font-family: 'Perandory';
+  src: url('./assets/fonts/Perandory-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --font-sans: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Perandory', ui-serif, Georgia, serif;
 }
 
 body {

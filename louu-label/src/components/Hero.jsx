@@ -23,10 +23,10 @@ function Hero({ imageURL, sharp = true }) {
       <div className="absolute inset-0 bg-black/30" />
 
       <div className="absolute inset-0 flex flex-col justify-center items-center px-6 md:px-16 text-white text-center">
-        <h1 className="font-serif text-3xl landscape:text-2xl sm:text-5xl md:text-7xl md:landscape:text-7xl lg:text-8xl lg:landscape:text-8xl tracking-wide">
+        <h1 className="font-serif text-4xl landscape:text-3xl sm:text-6xl md:text-8xl md:landscape:text-8xl lg:text-9xl lg:landscape:text-9xl tracking-wide">
           LOUU THE LABEL
         </h1>
-        <div className="mt-4 landscape:mt-2 md:landscape:mt-4 flex gap-8 md:gap-16 text-xs md:text-sm tracking-[0.2em] uppercase">
+        <div className="mt-4 landscape:mt-2 md:landscape:mt-4 flex gap-8 md:gap-16 text-base md:text-lg tracking-[0.2em] uppercase">
           <span>Gentle</span>
           <span>On</span>
           <span>The</span>
