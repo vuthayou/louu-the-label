@@ -37,7 +37,7 @@ function Hero({ imageURL, sharp = true }) {
       <div className="absolute bottom-16 landscape:bottom-4 md:bottom-28 md:landscape:bottom-28 left-1/2 -translate-x-1/2 flex items-center gap-8 md:gap-16 lg:gap-24 text-sm md:text-base uppercase tracking-wide text-white">
         <Link
           to="/collection"
-          className="underline underline-offset-4 leading-tight text-center hover:opacity-80 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
+          className="leading-tight text-center hover:opacity-80 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
         >
           Product
           <br />
@@ -45,7 +45,7 @@ function Hero({ imageURL, sharp = true }) {
         </Link>
         <Link
           to="/about"
-          className="underline underline-offset-4 hover:opacity-80 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
+          className="hover:opacity-80 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
         >
           About Us
         </Link>
