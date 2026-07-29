@@ -4,8 +4,7 @@ import { db } from '../firebase'
 import { preloadImages } from '../utils/preloadImages'
 import { readCache, writeCache } from '../utils/cache'
 import defaultHomeImage from '../assets/home.jpeg'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import PageLayout from '../components/PageLayout'
 import Hero from '../components/Hero'
 import AboutPreview from '../components/AboutPreview'
 import ProductsPreview from '../components/ProductsPreview'
@@ -76,15 +75,13 @@ function Home() {
   }
 
   return (
-    <div>
-      <Navbar />
+    <PageLayout>
       <div className="h-dvh flex flex-col">
         <Hero imageURL={heroDisplayURL} sharp={heroSharp} />
       </div>
       <AboutPreview />
       <ProductsPreview />
-      <Footer />
-    </div>
+    </PageLayout>
   )
 }
 

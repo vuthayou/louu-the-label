@@ -4,8 +4,7 @@ import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { readCache, writeCache } from '../utils/cache'
 import { formatSize } from '../utils/formatSize'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import PageLayout from '../components/PageLayout'
 import LoadingScreen from '../components/LoadingScreen'
 import ProductGallery from '../components/ProductGallery'
 
@@ -45,22 +44,18 @@ function ProductDetail() {
 
   if (!product) {
     return (
-      <div>
-        <Navbar />
+      <PageLayout>
         <div className="max-w-2xl mx-auto px-4 md:px-6 lg:px-8 py-16 text-center">
           <h1 className="text-2xl font-semibold mb-4">Product not found</h1>
         </div>
-        <Footer />
-      </div>
+      </PageLayout>
     )
   }
 
   const sizeText = formatSize(product.size)
 
   return (
-    <div>
-      <Navbar />
-
+    <PageLayout>
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 py-16 md:flex md:items-start md:gap-8">
         <div className="md:w-3/5 md:min-w-0">
           <ProductGallery photos={getProductPhotos(product)} />
@@ -98,9 +93,7 @@ function ProductDetail() {
           )}
         </div>
       </div>
-
-      <Footer />
-    </div>
+    </PageLayout>
   )
 }
 

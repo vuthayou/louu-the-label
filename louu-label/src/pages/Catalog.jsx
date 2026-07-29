@@ -3,8 +3,7 @@ import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { preloadImages } from '../utils/preloadImages'
 import { readCache, writeCache } from '../utils/cache'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import PageLayout from '../components/PageLayout'
 import ScatteredCategorySection from '../components/ScatteredCategorySection'
 import LoadingScreen from '../components/LoadingScreen'
 
@@ -140,7 +139,7 @@ function Catalog() {
   }
 
   return (
-    <div className="relative">
+    <PageLayout>
       {backgroundDisplayURL && (
         <img
           src={backgroundDisplayURL}
@@ -149,15 +148,13 @@ function Catalog() {
           className={`fixed inset-0 w-full h-full object-cover opacity-25 -z-10 transition-all duration-300 ease-in-out ${backgroundSharp ? 'blur-none scale-100' : 'blur-xl scale-110'}`}
         />
       )}
-      <Navbar />
       <ScatteredCategorySection
         title="Our Products"
         description={topsDescription}
         photos={interleavePhotos(topsPhotos, bottomsPhotos)}
         links={PRODUCTS_LINKS}
       />
-      <Footer />
-    </div>
+    </PageLayout>
   )
 }
 

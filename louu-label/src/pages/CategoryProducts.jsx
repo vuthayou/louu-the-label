@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { readCache, writeCache } from '../utils/cache'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import PageLayout from '../components/PageLayout'
 import ProductGrid from '../components/ProductGrid'
 import LoadingScreen from '../components/LoadingScreen'
 
@@ -38,8 +37,7 @@ function CategoryProducts({ category }) {
   }
 
   return (
-    <div>
-      <Navbar />
+    <PageLayout>
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-16 pb-8 text-center">
         <h1 className="text-2xl font-semibold">{category}</h1>
       </div>
@@ -48,8 +46,7 @@ function CategoryProducts({ category }) {
       ) : (
         <p className="text-gray-500 text-center pb-16">Coming soon.</p>
       )}
-      <Footer />
-    </div>
+    </PageLayout>
   )
 }
 
