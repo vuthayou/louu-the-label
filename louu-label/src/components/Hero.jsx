@@ -26,7 +26,7 @@ function Hero({ imageURL, sharp = true }) {
         <h1 className="font-serif text-4xl landscape:text-3xl sm:text-6xl md:text-8xl md:landscape:text-8xl lg:text-9xl lg:landscape:text-9xl tracking-wide">
           LOUU THE LABEL
         </h1>
-        <div className="mt-4 landscape:mt-2 md:landscape:mt-4 flex gap-8 md:gap-16 text-base md:text-lg tracking-[0.2em] uppercase">
+        <div className="mt-4 landscape:mt-2 md:landscape:mt-4 flex w-full max-w-[16rem] sm:max-w-xs md:max-w-lg lg:max-w-2xl justify-between text-base md:text-lg tracking-[0.2em] uppercase">
           <span>Gentle</span>
           <span>On</span>
           <span>The</span>
