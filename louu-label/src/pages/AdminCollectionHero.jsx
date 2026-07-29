@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore/lite'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db } from '../firebase'
 import { storage } from '../firebaseAdmin'
+import { deriveGalleryPhotos } from '../utils/galleryPhotos'
 import {
   getCroppedImageBlob,
   SMALL_PHOTO_MAX_SIZE,
@@ -20,22 +21,23 @@ const focusRing =
 const focusRingText =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
 
-const MAX_PHOTOS_PER_CATEGORY = 8
+// 16 keeps the same total capacity the old separate Tops (8) + Bottoms (8)
+// managers had combined, now that they're one list.
+const MAX_GALLERY_PHOTOS = 16
 
 function AdminCollectionHero() {
   const [topsDescription, setTopsDescription] = useState('')
-  const [topsPhotos, setTopsPhotos] = useState([])
-  const [bottomsPhotos, setBottomsPhotos] = useState([])
+  const [galleryPhotos, setGalleryPhotos] = useState([])
 
   const [descSaving, setDescSaving] = useState(false)
   const [descSaved, setDescSaved] = useState(false)
-  const [uploadingSlot, setUploadingSlot] = useState(null) // 'tops-0' | 'bottoms-0' | null
+  const [uploadingSlot, setUploadingSlot] = useState(null) // 'gallery-0' | null
 
-  // Shared crop popup state for both Tops and Bottoms — opens right after a
-  // file is picked. cropAspect is always computed from that photo's own
-  // natural dimensions (not a fixed ratio), so both categories keep the same
-  // "different widths, same height" row effect on the live page.
-  const [cropTarget, setCropTarget] = useState(null) // { category: 'tops' | 'bottoms', index: number } | null
+  // Crop popup state — opens right after a file is picked. cropAspect is
+  // always computed from that photo's own natural dimensions (not a fixed
+  // ratio), so the row still shows each photo at its own natural width on
+  // the live page.
+  const [cropTarget, setCropTarget] = useState(null) // { index: number } | null
   const [cropFile, setCropFile] = useState(null)
   const [cropPreviewURL, setCropPreviewURL] = useState('')
   const [cropAspect, setCropAspect] = useState(null)
@@ -49,11 +51,11 @@ function AdminCollectionHero() {
       if (snapshot.exists()) {
         const data = snapshot.data()
         setTopsDescription(data.topsDescription || '')
-        setTopsPhotos(data.topsPhotos || [])
-        // bottomsPhoto (singular) was the old single-photo field — fold it
-        // into the new array so a photo uploaded before this change doesn't
-        // just disappear.
-        setBottomsPhotos(data.bottomsPhotos || (data.bottomsPhoto ? [data.bottomsPhoto] : []))
+        // Combines the old separate topsPhotos/bottomsPhotos (or even older
+        // singular bottomsPhoto) into one list the first time this loads
+        // after the Tops/Bottoms managers were merged, so nothing already
+        // uploaded disappears or needs re-uploading.
+        setGalleryPhotos(deriveGalleryPhotos(data))
       }
     }
     fetchLayout()
@@ -77,7 +79,7 @@ function AdminCollectionHero() {
     setCroppedAreaPixels(pixels)
   }, [])
 
-  const cropUploadingKey = cropTarget && `${cropTarget.category}-${cropTarget.index}`
+  const cropUploadingKey = cropTarget && `gallery-${cropTarget.index}`
 
   async function handleSaveDescriptions(e) {
     e.preventDefault()
@@ -88,9 +90,9 @@ function AdminCollectionHero() {
     setDescSaved(true)
   }
 
-  function openCropForSlot(category, index, file) {
+  function openCropForSlot(index, file) {
     if (!file) return
-    setCropTarget({ category, index })
+    setCropTarget({ index })
     setCropFile(file)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
@@ -109,49 +111,35 @@ function AdminCollectionHero() {
 
   async function handleConfirmCrop() {
     if (!cropFile || !croppedAreaPixels || !cropTarget) return
-    const { category, index } = cropTarget
-    setUploadingSlot(`${category}-${index}`)
+    const { index } = cropTarget
+    setUploadingSlot(`gallery-${index}`)
     try {
       const [smallBlob, largeBlob] = await Promise.all([
         getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, SMALL_PHOTO_MAX_SIZE),
         getCroppedImageBlob(cropPreviewURL, croppedAreaPixels, LARGE_PHOTO_MAX_SIZE),
       ])
-      const smallRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-small-${cropFile.name}`)
-      const largeRef = ref(storage, `site/collection-${category}-${index}-${Date.now()}-large-${cropFile.name}`)
+      const smallRef = ref(storage, `site/collection-gallery-${index}-${Date.now()}-small-${cropFile.name}`)
+      const largeRef = ref(storage, `site/collection-gallery-${index}-${Date.now()}-large-${cropFile.name}`)
       await Promise.all([
         uploadBytes(smallRef, smallBlob, LONG_CACHE_METADATA),
         uploadBytes(largeRef, largeBlob, LONG_CACHE_METADATA),
       ])
       const [small, large] = await Promise.all([getDownloadURL(smallRef), getDownloadURL(largeRef)])
-      const photoEntry = { small, large }
-      if (category === 'tops') {
-        const nextPhotos = [...topsPhotos]
-        nextPhotos[index] = photoEntry
-        setTopsPhotos(nextPhotos)
-        await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
-      } else {
-        const nextPhotos = [...bottomsPhotos]
-        nextPhotos[index] = photoEntry
-        setBottomsPhotos(nextPhotos)
-        await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhotos: nextPhotos }, { merge: true })
-      }
+      const nextPhotos = [...galleryPhotos]
+      nextPhotos[index] = { small, large }
+      setGalleryPhotos(nextPhotos)
+      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { galleryPhotos: nextPhotos }, { merge: true })
       closeCropModal()
     } finally {
       setUploadingSlot(null)
     }
   }
 
-  async function handleRemovePhoto(category, index) {
+  async function handleRemovePhoto(index) {
     if (!window.confirm('Remove this photo? This cannot be undone.')) return
-    if (category === 'tops') {
-      const nextPhotos = topsPhotos.filter((_, i) => i !== index)
-      setTopsPhotos(nextPhotos)
-      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { topsPhotos: nextPhotos }, { merge: true })
-    } else {
-      const nextPhotos = bottomsPhotos.filter((_, i) => i !== index)
-      setBottomsPhotos(nextPhotos)
-      await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { bottomsPhotos: nextPhotos }, { merge: true })
-    }
+    const nextPhotos = galleryPhotos.filter((_, i) => i !== index)
+    setGalleryPhotos(nextPhotos)
+    await setDoc(doc(db, 'siteSettings', 'collectionLayout'), { galleryPhotos: nextPhotos }, { merge: true })
   }
 
   return (
@@ -184,35 +172,19 @@ function AdminCollectionHero() {
       </form>
 
       <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-4">Tops Photos</h2>
+        <h2 className="text-lg font-semibold mb-4">Gallery Photos</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Add up to {MAX_PHOTOS_PER_CATEGORY} photos for the row layout, one at a time. Click an
+          Add up to {MAX_GALLERY_PHOTOS} photos for the row layout, one at a time. Click an
           existing photo to replace it. Each photo opens a crop/zoom popup that keeps that
           photo's own proportions, so widths still vary in the row.
         </p>
         <PhotoGridManager
-          photos={topsPhotos}
-          maxPhotos={MAX_PHOTOS_PER_CATEGORY}
-          keyPrefix="tops"
+          photos={galleryPhotos}
+          maxPhotos={MAX_GALLERY_PHOTOS}
+          keyPrefix="gallery"
           uploadingSlot={uploadingSlot}
-          onSelectFile={(index, file) => openCropForSlot('tops', index, file)}
-          onRemove={(index) => handleRemovePhoto('tops', index)}
-        />
-      </div>
-
-      <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-4">Bottoms Photos</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Same as Tops — add up to {MAX_PHOTOS_PER_CATEGORY} photos, one at a time, each keeping
-          its own proportions in the row.
-        </p>
-        <PhotoGridManager
-          photos={bottomsPhotos}
-          maxPhotos={MAX_PHOTOS_PER_CATEGORY}
-          keyPrefix="bottoms"
-          uploadingSlot={uploadingSlot}
-          onSelectFile={(index, file) => openCropForSlot('bottoms', index, file)}
-          onRemove={(index) => handleRemovePhoto('bottoms', index)}
+          onSelectFile={openCropForSlot}
+          onRemove={handleRemovePhoto}
         />
       </div>
 
@@ -222,17 +194,11 @@ function AdminCollectionHero() {
             ref={modalRef}
             role="dialog"
             aria-modal="true"
-            aria-label={
-              (cropTarget.category === 'tops' ? topsPhotos : bottomsPhotos)[cropTarget.index]
-                ? 'Replace photo'
-                : 'Add photo'
-            }
+            aria-label={galleryPhotos[cropTarget.index] ? 'Replace photo' : 'Add photo'}
             className="w-full max-w-lg bg-white rounded shadow-lg p-6"
           >
             <h3 className="text-lg font-semibold mb-4">
-              {(cropTarget.category === 'tops' ? topsPhotos : bottomsPhotos)[cropTarget.index]
-                ? 'Replace photo'
-                : 'Add photo'}
+              {galleryPhotos[cropTarget.index] ? 'Replace photo' : 'Add photo'}
             </h3>
             {cropAspect ? (
               <>

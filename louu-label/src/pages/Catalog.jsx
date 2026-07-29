@@ -3,6 +3,7 @@ import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { preloadImages } from '../utils/preloadImages'
 import { readCache, writeCache } from '../utils/cache'
+import { deriveGalleryPhotos } from '../utils/galleryPhotos'
 import PageLayout from '../components/PageLayout'
 import ScatteredCategorySection from '../components/ScatteredCategorySection'
 import LoadingScreen from '../components/LoadingScreen'
@@ -15,20 +16,6 @@ const PRODUCTS_LINKS = [
   { label: 'Explore Bottoms', to: '/collection/bottoms' },
 ]
 
-// Tops and Bottoms photos alternate (tops[0], bottoms[0], tops[1], ...) so
-// the merged row doesn't just show one category's photos before the
-// other's — any leftover once the shorter list runs out is tacked on at
-// the end.
-function interleavePhotos(a, b) {
-  const merged = []
-  const maxLength = Math.max(a.length, b.length)
-  for (let i = 0; i < maxLength; i++) {
-    if (a[i]) merged.push(a[i])
-    if (b[i]) merged.push(b[i])
-  }
-  return merged
-}
-
 // Normalizes a raw collectionLayout doc (or null, if none cached/saved yet)
 // into the values the page actually needs — used for both cached and
 // freshly-fetched data so the fallback/migration logic only lives once.
@@ -38,18 +25,8 @@ function interleavePhotos(a, b) {
 // topsDescription as its shared description, so it isn't read here.
 function deriveLayout(data) {
   let topsDescription = FALLBACK_DESCRIPTION_TOPS
-  let topsPhotos = []
-  let bottomsPhotos = []
-  if (data) {
-    if (data.topsDescription) topsDescription = data.topsDescription
-    if (data.topsPhotos) topsPhotos = data.topsPhotos
-    // bottomsPhotos is the current field; bottomsPhoto (singular) was the
-    // old single-photo field, kept as a fallback so content saved before
-    // this change still shows up.
-    if (data.bottomsPhotos) bottomsPhotos = data.bottomsPhotos
-    else if (data.bottomsPhoto) bottomsPhotos = [data.bottomsPhoto]
-  }
-  return { topsDescription, topsPhotos, bottomsPhotos }
+  if (data && data.topsDescription) topsDescription = data.topsDescription
+  return { topsDescription, photos: deriveGalleryPhotos(data) }
 }
 
 // Below Tailwind's md breakpoint (768px, same one used site-wide), prefer
@@ -72,8 +49,7 @@ function Catalog() {
   // have real data to show. A fresh fetch still runs below and corrects
   // anything if it's changed since last time.
   const [topsDescription, setTopsDescription] = useState(initialLayout.topsDescription)
-  const [topsPhotos, setTopsPhotos] = useState(initialLayout.topsPhotos)
-  const [bottomsPhotos, setBottomsPhotos] = useState(initialLayout.bottomsPhotos)
+  const [photos, setPhotos] = useState(initialLayout.photos)
   // Same reasoning as Home's hero photo: a repeat visit goes straight to
   // the full cached photo, already sharp, trusting the browser's own HTTP
   // cache (Storage uploads set a long Cache-Control) — blur-up is only for
@@ -99,8 +75,7 @@ function Catalog() {
       writeCache('collectionLayout', layoutData)
       const layout = deriveLayout(layoutData)
       setTopsDescription(layout.topsDescription)
-      setTopsPhotos(layout.topsPhotos)
-      setBottomsPhotos(layout.bottomsPhotos)
+      setPhotos(layout.photos)
 
       const backgroundData = backgroundSnapshot.exists() ? backgroundSnapshot.data() : {}
       writeCache('collectionHero', backgroundData)
@@ -151,7 +126,7 @@ function Catalog() {
       <ScatteredCategorySection
         title="Our Products"
         description={topsDescription}
-        photos={interleavePhotos(topsPhotos, bottomsPhotos)}
+        photos={photos}
         links={PRODUCTS_LINKS}
       />
     </PageLayout>

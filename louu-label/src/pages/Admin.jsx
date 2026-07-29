@@ -6,6 +6,7 @@ import Login from './Login'
 import AdminProducts from './AdminProducts'
 import AdminHomepage from './AdminHomepage'
 import AdminCollectionHero from './AdminCollectionHero'
+import AdminAbout from './AdminAbout'
 
 // Each entry is one nav item + the section it shows. Adding a future
 // section (e.g. About page content) is just adding another entry here
@@ -14,6 +15,7 @@ const SECTIONS = [
   { id: 'products', label: 'Products', Component: AdminProducts },
   { id: 'homepage', label: 'Homepage', Component: AdminHomepage },
   { id: 'collection', label: 'Collection', Component: AdminCollectionHero },
+  { id: 'about', label: 'About Us', Component: AdminAbout },
 ]
 
 const focusRing =

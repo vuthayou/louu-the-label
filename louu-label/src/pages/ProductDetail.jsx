@@ -8,6 +8,42 @@ import PageLayout from '../components/PageLayout'
 import LoadingScreen from '../components/LoadingScreen'
 import ProductGallery from '../components/ProductGallery'
 
+const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
+
+// Collapsible "Model Detail"/"Size Guide" sections — collapsed by default
+// since they're supplementary info, not primary product details. Controlled
+// by the parent (isOpen/onToggle) rather than owning its own state, so the
+// parent can enforce only one being open at a time.
+function DetailDropdown({ title, content, isOpen, onToggle }) {
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={`group flex items-center justify-start gap-2 text-base font-normal text-gray-500 transition-all duration-300 ease-in-out ${focusRing}`}
+      >
+        {title}
+        <svg
+          aria-hidden="true"
+          focusable="false"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`h-4 w-4 transition-transform duration-300 ease-in-out ${isOpen ? 'rotate-0' : '-rotate-90 group-hover:rotate-0'}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {isOpen && <p className="text-base font-normal text-gray-500 mt-2">{content}</p>}
+    </div>
+  )
+}
+
 // Main photo (the one shown on the card that was clicked to get here)
 // always comes first, followed by any additional gallery photos — main
 // photo is stored as separate imageURL/smallImageURL fields (not the
@@ -25,6 +61,9 @@ function ProductDetail() {
   const cachedProduct = readCache(`product-${id}`)
   const [product, setProduct] = useState(cachedProduct)
   const [loading, setLoading] = useState(() => !cachedProduct)
+  // Which DetailDropdown is open, if any — a single value (rather than one
+  // boolean per dropdown) is what makes them mutually exclusive.
+  const [openDropdown, setOpenDropdown] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -63,33 +102,35 @@ function ProductDetail() {
 
         <div className="mt-8 md:mt-0 md:w-2/5">
           <h1 className="text-2xl md:text-3xl font-semibold mb-4">{product.name}</h1>
-          <p className="text-lg font-semibold text-gray-900 mb-4">${product.price}</p>
+          <p className="text-base font-normal text-gray-500 mb-4">${product.price}</p>
           {(product.color || sizeText) && (
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-col items-start gap-2 mb-4">
               {product.color && (
-                <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
-                  Color: {product.color}
-                </span>
+                <span className="text-base font-normal text-gray-500">Color: {product.color}</span>
               )}
               {sizeText && (
-                <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-4 py-2">
-                  Size: {sizeText}
-                </span>
+                <span className="text-base font-normal text-gray-500">Size: {sizeText}</span>
               )}
             </div>
           )}
-          {product.description && <p className="text-gray-500 mb-4">{product.description}</p>}
+          {product.description && (
+            <p className="text-base font-normal text-gray-500 mb-4">{product.description}</p>
+          )}
           {product.modelDetail && (
-            <div className="mb-4">
-              <h2 className="text-sm font-medium text-gray-700 mb-2">Model Detail</h2>
-              <p className="text-gray-500">{product.modelDetail}</p>
-            </div>
+            <DetailDropdown
+              title="Model Detail"
+              content={product.modelDetail}
+              isOpen={openDropdown === 'modelDetail'}
+              onToggle={() => setOpenDropdown((prev) => (prev === 'modelDetail' ? null : 'modelDetail'))}
+            />
           )}
           {product.sizeGuide && (
-            <div>
-              <h2 className="text-sm font-medium text-gray-700 mb-2">Size Guide</h2>
-              <p className="text-gray-500">{product.sizeGuide}</p>
-            </div>
+            <DetailDropdown
+              title="Size Guide"
+              content={product.sizeGuide}
+              isOpen={openDropdown === 'sizeGuide'}
+              onToggle={() => setOpenDropdown((prev) => (prev === 'sizeGuide' ? null : 'sizeGuide'))}
+            />
           )}
         </div>
       </div>
