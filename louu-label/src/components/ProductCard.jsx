@@ -13,7 +13,7 @@ function ProductCard({ product }) {
   return (
     <Link
       to={`/product/${id}`}
-      className={`block rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300 ease-in-out ${focusRing}`}
+      className={`block overflow-hidden hover:shadow-md transition-all duration-300 ease-in-out ${focusRing}`}
     >
       <img
         src={displayURL}
@@ -21,7 +21,7 @@ function ProductCard({ product }) {
         loading="lazy"
         className="w-full aspect-[4/5] object-cover bg-gray-100"
       />
-      <div className="p-4">
+      <div className="pt-4">
         <h3 className="font-medium text-gray-900">{name}</h3>
       </div>
     </Link>
