@@ -44,7 +44,7 @@ function ScatteredCategorySection({ title, description, photos = [], links = [] 
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`inline-block text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+                    className={`inline-block text-sm hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
                   >
                     {link.label}
                   </Link>
@@ -85,7 +85,7 @@ function ScatteredCategorySection({ title, description, photos = [], links = [] 
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`inline-block text-sm underline underline-offset-4 hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
+                    className={`inline-block text-sm hover:opacity-70 transition-all duration-300 ease-in-out ${focusRingText}`}
                   >
                     {link.label}
                   </Link>
