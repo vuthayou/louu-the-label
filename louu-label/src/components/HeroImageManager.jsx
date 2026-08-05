@@ -18,18 +18,25 @@ const focusRing =
 const focusRingText =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 rounded-sm'
 
-// Reusable admin upload+crop flow for any page's hero-style banner image.
+// Reusable admin upload+crop flow for any page's hero-style banner image —
+// also reused for square/portrait preview photos (Home's About Us/Our
+// Products sections) via cropAspect/previewAspectClass.
 // settingId: the Firestore doc under siteSettings/ this manages.
 // storagePrefix: the Storage path prefix uploads go under.
 // label: display text.
 // objectPositionClass: a Tailwind object-position class (e.g. "object-center"
 // or "object-[75%_15%]") — a class string, not a raw CSS value, since inline
 // styles aren't used in this project.
+// cropAspect: numeric aspect ratio (width/height) passed to react-easy-crop.
+// previewAspectClass: matching Tailwind aspect-ratio class for the "current
+// photo" preview box, since that can't derive from a numeric prop alone.
 function HeroImageManager({
   settingId,
   storagePrefix,
   label,
   objectPositionClass = 'object-center',
+  cropAspect = 16 / 9,
+  previewAspectClass = 'aspect-video',
 }) {
   const [imageURL, setImageURL] = useState('')
   const [imageFile, setImageFile] = useState(null)
@@ -129,8 +136,9 @@ function HeroImageManager({
     <div>
       <h2 className="text-lg font-semibold mb-4">{label}</h2>
       <p className="text-sm text-gray-500 mb-4">
-        Recommended: landscape orientation, roughly 16:9 to 2:1, at least 1920px wide, and
-        compressed to under ~500KB (JPEG or WebP) for fast loading.
+        {cropAspect === 16 / 9
+          ? 'Recommended: landscape orientation, roughly 16:9 to 2:1, at least 1920px wide, and compressed to under ~500KB (JPEG or WebP) for fast loading.'
+          : 'Compressed to under ~500KB (JPEG or WebP) for fast loading.'}
       </p>
 
       <div className="flex flex-col gap-4 max-w-md">
@@ -147,7 +155,9 @@ function HeroImageManager({
             <p className="text-sm text-gray-500 mb-2">
               Current live photo (choose a new file above to reposition/crop):
             </p>
-            <div className="w-full aspect-video border border-gray-300 rounded overflow-hidden bg-gray-100">
+            <div
+              className={`w-full ${previewAspectClass} border border-gray-300 rounded overflow-hidden bg-gray-100`}
+            >
               <img
                 src={imageURL}
                 alt={`Current ${label} photo`}
@@ -171,12 +181,12 @@ function HeroImageManager({
             <p className="text-sm text-gray-500 mb-2">
               Drag to move, scroll or pinch to zoom — this is exactly what will show live:
             </p>
-            <div className="relative w-full aspect-video bg-gray-100 rounded overflow-hidden">
+            <div className={`relative w-full ${previewAspectClass} bg-gray-100 rounded overflow-hidden`}>
               <Cropper
                 image={previewURL}
                 crop={crop}
                 zoom={zoom}
-                aspect={16 / 9}
+                aspect={cropAspect}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
