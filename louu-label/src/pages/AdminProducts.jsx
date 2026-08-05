@@ -611,12 +611,11 @@ function AdminProducts() {
         <div className="flex flex-col gap-4">
           <SectionHeading text="Content" />
           <div>
-            <FieldLabel text="Description" required />
+            <FieldLabel text="Description" required={false} />
             <textarea
               placeholder="Description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              required
               rows={3}
               className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
             />
@@ -633,12 +632,11 @@ function AdminProducts() {
             />
           </div>
           <div>
-            <FieldLabel text="Size guide" required />
+            <FieldLabel text="Size guide" required={false} />
             <textarea
               placeholder="Size guide"
               value={sizeGuide}
               onChange={(e) => setSizeGuide(e.target.value)}
-              required
               rows={3}
               className={`w-full border border-gray-300 rounded-lg px-4 py-2 transition-all duration-300 ease-in-out ${inputFocus}`}
             />
