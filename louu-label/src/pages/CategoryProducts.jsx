@@ -39,7 +39,7 @@ function CategoryProducts({ category }) {
   return (
     <PageLayout>
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-16 pb-8 text-center">
-        <h1 className="text-2xl font-semibold">{category}</h1>
+        <h1 className="font-serif uppercase text-2xl md:text-3xl font-semibold">{category}</h1>
       </div>
       {products.length > 0 ? (
         <ProductGrid products={products} />

@@ -36,7 +36,7 @@ function ScatteredCategorySection({ title, description, photos = [], links = [] 
         {/* Mobile: title block, then photos in their own horizontally-scrolling row */}
         <div className="flex flex-col gap-8 md:hidden">
           <div>
-            <h2 className="text-2xl font-semibold mb-4">{title}</h2>
+            <h2 className="font-serif text-2xl md:text-3xl font-semibold mb-4">{title}</h2>
             <p className="text-gray-500">{description}</p>
             {links.length > 0 && (
               <div className="flex flex-col gap-2 mt-4">
@@ -77,8 +77,8 @@ function ScatteredCategorySection({ title, description, photos = [], links = [] 
           <div
             className={`${ROW_HEIGHT} w-64 flex-shrink-0 bg-white/50 border border-gray-200 shadow-md p-6 flex flex-col justify-center`}
           >
-            <h2 className="text-2xl font-semibold mb-2">{title}</h2>
-            <p className="text-gray-500 text-sm">{description}</p>
+            <h2 className="font-serif text-2xl md:text-3xl font-semibold mb-2">{title}</h2>
+            <p className="text-gray-500">{description}</p>
             {links.length > 0 && (
               <div className="flex flex-col gap-2 mt-4">
                 {links.map((link) => (

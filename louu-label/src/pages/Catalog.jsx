@@ -124,7 +124,7 @@ function Catalog() {
         />
       )}
       <ScatteredCategorySection
-        title="Our Products"
+        title="OUR PRODUCTS"
         description={topsDescription}
         photos={photos}
         links={PRODUCTS_LINKS}
