@@ -84,6 +84,24 @@ function AdminProducts() {
   // Filters the main products list only — Add/Edit and Archived are
   // unaffected.
   const [categoryFilter, setCategoryFilter] = useState('All')
+  // Drag-to-reorder only makes sense while filtered to exactly one ordered
+  // category — id of whichever row is currently being dragged, or null.
+  const [draggedId, setDraggedId] = useState(null)
+  // Which row is currently being dragged over, and whether the drop would
+  // land above or below it — drives the insertion-line indicator.
+  const [dropTarget, setDropTarget] = useState(null) // { id, position: 'above' | 'below' } | null
+  // Dragging only rearranges local state — nothing hits Firestore until
+  // "Save order" is clicked, so a bunch of drags in a row costs one write
+  // pass instead of one per drop. savedSortOrderRef is a snapshot of what's
+  // actually persisted, so saving only writes products whose position
+  // actually changed, not the whole category every time.
+  const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const savedSortOrderRef = useRef({})
+  // Grip handles/dragging are gated behind this — off by default even
+  // while filtered to Tops/Bottoms, so nothing is draggable until the
+  // admin deliberately opts in via the "Rearrange" button.
+  const [isRearranging, setIsRearranging] = useState(false)
 
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
@@ -185,7 +203,34 @@ function AdminProducts() {
 
   async function fetchProducts() {
     const snapshot = await getDocs(collection(db, 'products'))
-    setProducts(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+    const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+    // One-time backfill: any Tops/Bottoms product missing sortOrder gets
+    // assigned one based on its current display order, appended after
+    // whatever's already ordered — so existing products get a real
+    // position (the first time this runs, that's all of them, in
+    // whatever order they were already showing in) without ever
+    // clobbering an order that's already been set.
+    const backfillWrites = []
+    for (const cat of ['Tops', 'Bottoms']) {
+      const categoryProducts = all.filter((p) => p.category === cat)
+      const ordered = categoryProducts.filter((p) => p.sortOrder !== undefined)
+      const missing = categoryProducts.filter((p) => p.sortOrder === undefined)
+      if (missing.length === 0) continue
+      let nextOrder = ordered.length > 0 ? Math.max(...ordered.map((p) => p.sortOrder)) + 1 : 0
+      missing.forEach((p) => {
+        p.sortOrder = nextOrder
+        backfillWrites.push(updateDoc(doc(db, 'products', p.id), { sortOrder: nextOrder }))
+        nextOrder += 1
+      })
+    }
+    if (backfillWrites.length > 0) {
+      await Promise.all(backfillWrites)
+    }
+
+    savedSortOrderRef.current = Object.fromEntries(all.map((p) => [p.id, p.sortOrder]))
+    setHasUnsavedOrder(false)
+    setProducts(all)
   }
 
   async function fetchArchivedProducts() {
@@ -401,6 +446,19 @@ function AdminProducts() {
           smallImageURL,
         })
       } else {
+        // A new Tops/Bottoms product shows first, not appended at the end —
+        // every other product already in that category shifts down one to
+        // make room, before the new one is written at position 0.
+        const isOrderedCategory = category === 'Tops' || category === 'Bottoms'
+        if (isOrderedCategory) {
+          const sameCategory = products.filter((p) => p.category === category)
+          await Promise.all(
+            sameCategory.map((p) =>
+              updateDoc(doc(db, 'products', p.id), { sortOrder: (p.sortOrder ?? 0) + 1 }),
+            ),
+          )
+        }
+
         // addDoc generates the ID, so we don't know it until it resolves —
         // needed below to save notes under the same ID as the product.
         const newDoc = await addDoc(collection(db, 'products'), {
@@ -415,6 +473,7 @@ function AdminProducts() {
           sizeGuide,
           imageURL,
           smallImageURL,
+          ...(isOrderedCategory && { sortOrder: 0 }),
           createdAt: serverTimestamp(),
         })
         productId = newDoc.id
@@ -437,6 +496,80 @@ function AdminProducts() {
     } finally {
       setUploading(false)
     }
+  }
+
+  // Drops draggedId above or below targetId (per position) within the
+  // currently-filtered category. Local state only — nothing is written to
+  // Firestore here, so any number of drags in a row are free; see
+  // handleSaveOrder.
+  function handleReorder(targetId, position) {
+    if (!draggedId || draggedId === targetId) return
+    const categoryProducts = products
+      .filter((p) => p.category === categoryFilter)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+    const fromIndex = categoryProducts.findIndex((p) => p.id === draggedId)
+    if (fromIndex === -1) return
+
+    const reordered = [...categoryProducts]
+    const [moved] = reordered.splice(fromIndex, 1)
+    // Recompute the target's index after removing the dragged item, since
+    // removing an earlier item shifts everything after it back by one.
+    const targetIndex = reordered.findIndex((p) => p.id === targetId)
+    if (targetIndex === -1) return
+    const insertIndex = position === 'below' ? targetIndex + 1 : targetIndex
+    reordered.splice(insertIndex, 0, moved)
+
+    const updates = reordered.map((p, index) => ({ id: p.id, sortOrder: index }))
+    setProducts((prev) =>
+      prev.map((p) => {
+        const update = updates.find((u) => u.id === p.id)
+        return update ? { ...p, sortOrder: update.sortOrder } : p
+      }),
+    )
+    setDraggedId(null)
+    setDropTarget(null)
+    setHasUnsavedOrder(true)
+  }
+
+  // Only writes products whose sortOrder actually differs from what's last
+  // known to be saved (savedSortOrderRef) — not the whole category — so a
+  // single small reshuffle doesn't rewrite everyone in it.
+  async function handleSaveOrder() {
+    const changed = products.filter(
+      (p) => p.category === categoryFilter && p.sortOrder !== savedSortOrderRef.current[p.id],
+    )
+    if (changed.length === 0) {
+      setHasUnsavedOrder(false)
+      setIsRearranging(false)
+      return
+    }
+    setSavingOrder(true)
+    try {
+      await Promise.all(changed.map((p) => updateDoc(doc(db, 'products', p.id), { sortOrder: p.sortOrder })))
+      changed.forEach((p) => {
+        savedSortOrderRef.current[p.id] = p.sortOrder
+      })
+      setHasUnsavedOrder(false)
+      setIsRearranging(false)
+    } finally {
+      setSavingOrder(false)
+    }
+  }
+
+  // Reverts any un-persisted drag changes in the current category back to
+  // savedSortOrderRef's values, and exits rearrange mode without writing
+  // anything.
+  function handleCancelOrder() {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.category === categoryFilter && p.id in savedSortOrderRef.current
+          ? { ...p, sortOrder: savedSortOrderRef.current[p.id] }
+          : p,
+      ),
+    )
+    setHasUnsavedOrder(false)
+    setIsRearranging(false)
   }
 
   async function handleDelete(id) {
@@ -687,6 +820,10 @@ function AdminProducts() {
     )
   }
 
+  // Drag-to-reorder only makes sense filtered to exactly one ordered
+  // category — "All"/"Others" would mix categories with independent orders.
+  const isReorderable = categoryFilter === 'Tops' || categoryFilter === 'Bottoms'
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -707,7 +844,13 @@ function AdminProducts() {
         {['All', 'Tops', 'Bottoms', 'Others'].map((option) => (
           <button
             key={option}
-            onClick={() => setCategoryFilter(option)}
+            onClick={() => {
+              // Switching category while mid-rearrange discards any
+              // un-persisted drag changes rather than leaving them
+              // orphaned in state, invisible until you filter back.
+              if (isRearranging) handleCancelOrder()
+              setCategoryFilter(option)
+            }}
             className={`text-sm rounded px-4 py-2 transition-all duration-300 ease-in-out ${focusRing} ${
               categoryFilter === option
                 ? 'bg-gray-900 text-white'
@@ -719,16 +862,107 @@ function AdminProducts() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
+      {isReorderable && (
+        <div className="flex items-center justify-end gap-4 mt-2 mb-2">
+          {isRearranging ? (
+            <>
+              <p className="text-sm text-gray-400">Drag a product by its grip handle to reorder it.</p>
+              {hasUnsavedOrder && (
+                <button
+                  onClick={handleSaveOrder}
+                  disabled={savingOrder}
+                  className={`text-sm bg-gray-900 text-white rounded px-4 py-2 hover:bg-gray-700 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRing}`}
+                >
+                  {savingOrder ? 'Saving...' : 'Save order'}
+                </button>
+              )}
+              <button
+                onClick={handleCancelOrder}
+                disabled={savingOrder}
+                className={`text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out disabled:opacity-50 ${focusRingText}`}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsRearranging(true)}
+              className={`text-sm border border-gray-300 text-gray-600 rounded px-4 py-2 hover:bg-gray-100 transition-all duration-300 ease-in-out ${focusRing}`}
+            >
+              Rearrange
+            </button>
+          )}
+        </div>
+      )}
+      <div
+        onDragOver={(e) => isRearranging && e.preventDefault()}
+        onDrop={() => {
+          // Catches drops in the empty space past the last row, where no
+          // row's own onDrop fires — dropTarget is still whatever it was
+          // last set to from hovering the last row, so this just honors it.
+          if (!isRearranging || !dropTarget) return
+          handleReorder(dropTarget.id, dropTarget.position)
+        }}
+        className="flex flex-col gap-2"
+      >
         {products
           .filter((product) => categoryFilter === 'All' || product.category === categoryFilter)
+          .sort((a, b) => (isReorderable ? (a.sortOrder ?? 0) - (b.sortOrder ?? 0) : 0))
           .map((product) => {
           const isEditingThis = editingId === product.id
           const isExpanded = expandedIds.has(product.id) || isEditingThis
+          const showDrop = dropTarget?.id === product.id && product.id !== draggedId
+          const showDropAbove = showDrop && dropTarget.position === 'above'
+          const showDropBelow = showDrop && dropTarget.position === 'below'
           return (
-            <div key={product.id} className="border border-gray-200 rounded">
+            <div
+              key={product.id}
+              onDragOver={(e) => {
+                if (!isRearranging) return
+                e.preventDefault()
+                const rect = e.currentTarget.getBoundingClientRect()
+                const isAbove = e.clientY < rect.top + rect.height / 2
+                setDropTarget({ id: product.id, position: isAbove ? 'above' : 'below' })
+              }}
+              onDrop={(e) => {
+                if (!isRearranging || !dropTarget) return
+                // Without this, the drop event bubbles to the list
+                // container's own onDrop (added to catch drops past the
+                // last row) and would fire handleReorder a second time.
+                e.stopPropagation()
+                handleReorder(dropTarget.id, dropTarget.position)
+              }}
+              className={`border border-gray-200 rounded ${showDropAbove ? 'border-t-2 border-t-gray-900' : ''} ${showDropBelow ? 'border-b-2 border-b-gray-900' : ''}`}
+            >
               <div className="flex items-center justify-between px-4 py-4">
                 <div className="flex items-center gap-2">
+                  {isRearranging && (
+                    <span
+                      draggable
+                      onDragStart={() => setDraggedId(product.id)}
+                      onDragEnd={() => {
+                        setDraggedId(null)
+                        setDropTarget(null)
+                      }}
+                      aria-label={`Drag to reorder ${product.name}`}
+                      className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-all duration-300 ease-in-out"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                      >
+                        <circle cx="9" cy="6" r="1.5" />
+                        <circle cx="9" cy="12" r="1.5" />
+                        <circle cx="9" cy="18" r="1.5" />
+                        <circle cx="15" cy="6" r="1.5" />
+                        <circle cx="15" cy="12" r="1.5" />
+                        <circle cx="15" cy="18" r="1.5" />
+                      </svg>
+                    </span>
+                  )}
                   <img
                     src={product.imageURL}
                     alt={product.name}

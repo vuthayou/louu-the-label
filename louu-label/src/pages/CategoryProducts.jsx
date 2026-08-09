@@ -10,13 +10,20 @@ import LoadingScreen from '../components/LoadingScreen'
 // "Explore {category}" on the Collection page. Falls back to "Coming soon"
 // if no products have that exact category yet — Category is a fixed
 // button-choice in Admin now, so an exact match is reliable.
+// Sorted by sortOrder (set via drag-to-reorder in Admin) — left to right,
+// top to bottom in the grid below. Products without one yet (shouldn't
+// normally happen — Admin backfills it on load) sort first.
+function sortByOrder(products) {
+  return [...products].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+}
+
 function CategoryProducts({ category }) {
   // Cached by the whole product list (shared with the other category page)
   // rather than per-category, since both pages read from the same
   // Firestore collection and just filter differently client-side.
   const cachedProducts = readCache('products')
   const [products, setProducts] = useState(() =>
-    cachedProducts ? cachedProducts.filter((product) => product.category === category) : [],
+    cachedProducts ? sortByOrder(cachedProducts.filter((product) => product.category === category)) : [],
   )
   const [loading, setLoading] = useState(() => !cachedProducts)
 
@@ -25,7 +32,7 @@ function CategoryProducts({ category }) {
       const snapshot = await getDocs(collection(db, 'products'))
       const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
       writeCache('products', all)
-      setProducts(all.filter((product) => product.category === category))
+      setProducts(sortByOrder(all.filter((product) => product.category === category)))
       setLoading(false)
     }
 
