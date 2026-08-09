@@ -39,7 +39,7 @@ function DetailDropdown({ title, content, isOpen, onToggle }) {
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {isOpen && <p className="text-base font-normal text-gray-500 mt-2">{content}</p>}
+      {isOpen && <p className="text-base font-normal text-gray-500 whitespace-pre-line mt-2">{content}</p>}
     </div>
   )
 }
@@ -114,7 +114,7 @@ function ProductDetail() {
             </div>
           )}
           {product.description && (
-            <p className="text-base font-normal text-gray-500 mb-4">{product.description}</p>
+            <p className="text-base font-normal text-gray-500 whitespace-pre-line mb-4">{product.description}</p>
           )}
           {product.modelDetail && (
             <DetailDropdown
