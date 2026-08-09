@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore/lite'
 import { db } from '../firebase'
 import { readCache, writeCache } from '../utils/cache'
@@ -95,7 +95,30 @@ function ProductDetail() {
 
   return (
     <PageLayout>
-      <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 py-16 md:flex md:items-start md:gap-8">
+      {product.category && (
+        <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 pt-8 mb-8">
+          <Link
+            to={`/collection/${product.category.toLowerCase()}`}
+            className={`inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-all duration-300 ease-in-out ${focusRing}`}
+          >
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            {product.category}
+          </Link>
+        </div>
+      )}
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 pb-16 md:flex md:items-start md:gap-8">
         <div className="md:w-3/5 md:min-w-0">
           <ProductGallery photos={getProductPhotos(product)} />
         </div>
