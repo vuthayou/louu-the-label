@@ -33,7 +33,7 @@ function Footer() {
             </svg>
           </a>
           <a
-            href="https://www.facebook.com/"
+            href="https://www.facebook.com/profile.php?id=61581035941333"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Louu the Label on Facebook"
